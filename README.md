@@ -1,6 +1,9 @@
 # EDMLib
 A library made for educational data mining at Fordham University.
 
+Library created by Michael Riad Zaky mriadzaky@fordham.edu (2020), with Daniel Leeds, Gary Weiss, Mavis Zhang at Fordham 
+University. Library free for use provided you cite https://github.com/MichaelRZ/EDMLib in any resulting publications. Library free for redistribution provided you retain the author attributions above.
+
 Usage:
 
 The library takes in grade data in the form of a CSV file or Pandas dataframe and manipulates the data according to certain constant column names for student IDs, class IDs, and a student’s grade in that class. These constants can be changed as need be, and by default work with Fordham’s data.
