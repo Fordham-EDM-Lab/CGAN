@@ -1,4 +1,5 @@
 # EDMLib
+A library made for educational data mining at Fordham University.
 
 Library created by Michael Riad Zaky mriadzaky@fordham.edu (2020), with Daniel Leeds, Gary Weiss, Mavis Zhang at Fordham 
 University. Library free for use provided you cite https://github.com/MichaelRZ/EDMLib in any resulting publications. Library free for redistribution provided you retain the author attributions above.
