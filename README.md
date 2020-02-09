@@ -43,4 +43,4 @@ Change constants to match your file:
 data.defineWorkingColumns(finalGradeInClassColumn, classDefiningColumn, courseNumberAndTerm, studentIdColumn, classMajorColumn)
 ```
 
-See the example file for simple usage.
+See the demo file for example usage.
