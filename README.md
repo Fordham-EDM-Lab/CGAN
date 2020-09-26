@@ -3,7 +3,7 @@
 Library created by Michael Riad Zaky mriadzaky@fordham.edu (2020), with Daniel Leeds, Gary Weiss, Mavis Zhang at Fordham 
 University. Library free for use provided you cite https://github.com/MichaelRZ/EDMLib in any resulting publications. Library free for redistribution provided you retain the author attributions above.
 
-New: more details as well as a GUI for the library can be found at https://edmlib.ml/
+New: more details as well as a GUI for the library can be found at https://edmlib.ml/. More library documentation found at https://edmlib.ml/edmlib/index.html.
 
 Usage:
 
@@ -44,4 +44,4 @@ Change constants to match your file:
 data.defineWorkingColumns(finalGradeInClassColumn, classDefiningColumn, courseNumberAndTerm, studentIdColumn, classMajorColumn)
 ```
 
-See the demo file for example usage, as well as https://edmlib.ml/ for more details.
+See the demo file for example usage, as well as https://edmlib.ml/edmlib/index.html for more library documentation.
