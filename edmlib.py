@@ -35,6 +35,7 @@ def disable_logo(plot, element):
 hv.plotting.bokeh.ElementPlot.hooks.append(disable_logo)
 
 pvalSuffix = 'PValue'
+ttestSuffix = '_ttest'
 edmApplication = False
 
 def makeExportDirectory(directory):
@@ -397,7 +398,7 @@ class gradeData:
       sortedClasses = correctClasses.sort_values(self.TERM_COLUMN)
       if 'termOrder' in self.df.columns:
         print('sorting')
-        sortedClasses['termOrder'] = sortedClasses['termOrder'].astype(float)
+        sortedClasses['termOrder'] = sortedClasses['termOrder'].apply(float)
         sortedClasses = sortedClasses.sort_values('termOrder')
       sortedClasses.reset_index(inplace = True)
       firstClass = False
@@ -535,14 +536,14 @@ class gradeData:
       if not self.__requiredColumnPresent(self.CLASS_NUMBER_COLUMN):
         print("Note: Optionally, the 'classNumber' column does not need to be defined if the class specific (e.g. 'Psych1000' or 'IntroToPsych') column 'classCode' is defined. This can be done with the 'defineWorkingColumns' function.")
         return
-      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].astype(str) + self.df[self.CLASS_NUMBER_COLUMN]
+      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].apply(str) + self.df[self.CLASS_NUMBER_COLUMN]
       self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_CODE_COLUMN].str.replace(" ","")
     if self.CLASS_ID_AND_TERM_COLUMN not in self.df.columns:
       if not self.__requiredColumnPresent(self.CLASS_ID_COLUMN):
         return
       if not self.__requiredColumnPresent(self.TERM_COLUMN):
         return
-      self.df[self.CLASS_ID_AND_TERM_COLUMN] = self.df[self.CLASS_ID_COLUMN].astype(str) + self.df[self.TERM_COLUMN]
+      self.df[self.CLASS_ID_AND_TERM_COLUMN] = self.df[self.CLASS_ID_COLUMN].apply(str) + self.df[self.TERM_COLUMN]
       self.df[self.CLASS_ID_AND_TERM_COLUMN] = self.df[self.CLASS_ID_AND_TERM_COLUMN].str.replace(" ","")
 
   def instructorRanks(self, firstClass, secondClass, fileName = 'instructorRanking', minStudents = 1):
@@ -794,22 +795,23 @@ class gradeData:
         newCount = sum(secondClassWithPastInstructor)
         nonStudents = len(secondClassWithPastInstructor.index) - newCount
         if nonStudents > 0:
-          entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor]
-          entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor]
-          AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean()
-          AverageGradeWithoutInstructor = entriesWithoutPastInstructor[self.FINAL_GRADE_COLUMN].mean()
           stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
-          rowDict = {}
-          rowDict['Instructor'] = instructor
-          rowDict['courseTaught'] = classOne
-          rowDict['futureCourse'] = classTwo
-          rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean()
-          rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev
-          if otherRank is not None:
-            rowDict[otherRank] = entriesWithPastInstructor[otherRank].mean() - entriesWithoutPastInstructor[otherRank].mean()
-          rowDict['#students'] = newCount
-          rowDict['#nonStudents'] = nonStudents
-          rowList.append(rowDict)
+          if stdDev > 0:
+            entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor]
+            entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor]
+            AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean()
+            AverageGradeWithoutInstructor = entriesWithoutPastInstructor[self.FINAL_GRADE_COLUMN].mean()
+            rowDict = {}
+            rowDict['Instructor'] = instructor
+            rowDict['courseTaught'] = classOne
+            rowDict['futureCourse'] = classTwo
+            rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean()
+            rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev
+            if otherRank is not None:
+              rowDict[otherRank] = entriesWithPastInstructor[otherRank].mean() - entriesWithoutPastInstructor[otherRank].mean()
+            rowDict['#students'] = newCount
+            rowDict['#nonStudents'] = nonStudents
+            rowList.append(rowDict)
     print('here')
     classes = self.df[self.CLASS_CODE_COLUMN].unique().tolist()
     numClasses = len(classes)
@@ -846,8 +848,8 @@ class gradeData:
     completeDf['Instructor'].replace(' ', np.nan, inplace=True)
     completeDf.dropna(subset=['Instructor'], inplace=True)
     completeDf.reset_index(inplace = True, drop=True)
-    completeDf['totalStudents'] = (completeDf['#students'].astype(int)) + (completeDf['#nonStudents'].astype(int))
-    completeDf['%ofStudents'] = ((completeDf['#students'].astype(float)) / (completeDf['totalStudents'].astype(float))) * 100
+    completeDf['totalStudents'] = (completeDf['#students'].apply(int)) + (completeDf['#nonStudents'].apply(int))
+    completeDf['%ofStudents'] = ((completeDf['#students'].apply(float)) / (completeDf['totalStudents'].apply(float))) * 100
     completeDf['grade*Norm*Sign(norm)'] = completeDf['gradeBenefit'] * completeDf['normBenefit'] * np.sign(completeDf['normBenefit'])
     completeDf['normBenefit' + pvalSuffix] = pvalOfSeries(completeDf['normBenefit'])
     completeDf['gradeBenefit' + pvalSuffix] = pvalOfSeries(completeDf['gradeBenefit'])
@@ -876,11 +878,10 @@ class gradeData:
     """
     print("Getting correlations...")
     start_time = time.time()
+    nSharedStudents = max(nSharedStudents, 2)
     if self.NORMALIZATION_COLUMN not in self.df.columns:
       self.getNormalizationColumn()
     if not self.__requiredColumnPresent(self.NORMALIZATION_COLUMN):
-      return
-    if not self.__requiredColumnPresent(self.STUDENT_ID_COLUMN):
       return
     if not self.__requiredColumnPresent(self.STUDENT_ID_COLUMN):
       return
@@ -910,9 +911,9 @@ class gradeData:
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
       if len(norms) < nSharedStudents and not sequenceDetails:
-        return ([math.nan] * 24)
+        return ([math.nan] * 36)
       elif len(norms) < nSharedStudents:
-        return ([math.nan] * 40)
+        return ([math.nan] * 52)
       norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms.sort_index(inplace=True)
       aNorms = norms[self.NORMALIZATION_COLUMN]
@@ -943,6 +944,22 @@ class gradeData:
       abANorms = aToBA[self.NORMALIZATION_COLUMN].dropna()
       baANorms = bToAA[self.NORMALIZATION_COLUMN].dropna()
       concANorms = concurrentA[self.NORMALIZATION_COLUMN].dropna()
+      AstdDevGrd = norms[self.FINAL_GRADE_COLUMN].std()
+      BstdDevGrd = norms2[self.FINAL_GRADE_COLUMN].std()
+      AstdDevNrm = norms[self.NORMALIZATION_COLUMN].std()
+      BstdDevNrm = norms2[self.NORMALIZATION_COLUMN].std()
+      ABASDGrd = aToBA[self.FINAL_GRADE_COLUMN].std()
+      ABBSDGrd = aToBB[self.FINAL_GRADE_COLUMN].std()
+      BAASDGrd = bToAA[self.FINAL_GRADE_COLUMN].std()
+      BABSDGrd = bToAB[self.FINAL_GRADE_COLUMN].std()
+      ABASDNrm = aToBA[self.NORMALIZATION_COLUMN].std()
+      ABBSDNrm = aToBB[self.NORMALIZATION_COLUMN].std()
+      BAASDNrm = bToAA[self.NORMALIZATION_COLUMN].std()
+      BABSDNrm = bToAB[self.NORMALIZATION_COLUMN].std()
+      AGrd = norms[self.FINAL_GRADE_COLUMN].mean()
+      BGrd = norms2[self.FINAL_GRADE_COLUMN].mean()
+      ANrm = norms[self.NORMALIZATION_COLUMN].mean()
+      BNrm = norms2[self.NORMALIZATION_COLUMN].mean()
       if classDetails:
         abAMean = aToBA[self.FINAL_GRADE_COLUMN].mean()
         abANormMean = aToBA[self.NORMALIZATION_COLUMN].mean()
@@ -994,23 +1011,23 @@ class gradeData:
         bToABSoph = bToAB.loc[bToABSophT]
         bToABJun = bToAB.loc[bToABJunT]
         bToABSen = bToAB.loc[bToABSenT]
-
-        avNormDifCrs2Fresh = (aToBBFresh[self.NORMALIZATION_COLUMN].mean() - bToABFresh[self.NORMALIZATION_COLUMN].mean()) if crs2FreshMin > 0 else np.nan
-        avNormDifCrs1Fresh = (aToBAFresh[self.NORMALIZATION_COLUMN].mean() - bToAAFresh[self.NORMALIZATION_COLUMN].mean()) if crs1FreshMin > 0 else np.nan
-        avNormDifCrs2Soph = (aToBBSoph[self.NORMALIZATION_COLUMN].mean() - bToABSoph[self.NORMALIZATION_COLUMN].mean()) if crs2SophMin > 0 else np.nan
-        avNormDifCrs1Soph = (aToBASoph[self.NORMALIZATION_COLUMN].mean() - bToAASoph[self.NORMALIZATION_COLUMN].mean()) if crs1SophMin > 0 else np.nan
-        avNormDifCrs2Jun = (aToBBJun[self.NORMALIZATION_COLUMN].mean() - bToABJun[self.NORMALIZATION_COLUMN].mean()) if crs2JunMin > 0 else np.nan
-        avNormDifCrs1Jun = (aToBAJun[self.NORMALIZATION_COLUMN].mean() - bToAAJun[self.NORMALIZATION_COLUMN].mean()) if crs1JunMin > 0 else np.nan
-        avNormDifCrs2Sen = (aToBBSen[self.NORMALIZATION_COLUMN].mean() - bToABSen[self.NORMALIZATION_COLUMN].mean()) if crs2SenMin > 0 else np.nan
-        avNormDifCrs1Sen = (aToBASen[self.NORMALIZATION_COLUMN].mean() - bToAASen[self.NORMALIZATION_COLUMN].mean()) if crs1SenMin > 0 else np.nan
-        avGradeDifCrs2Fresh = (aToBBFresh[self.FINAL_GRADE_COLUMN].mean() - bToABFresh[self.FINAL_GRADE_COLUMN].mean()) if crs2FreshMin > 0 else np.nan
-        avGradeDifCrs1Fresh = (aToBAFresh[self.FINAL_GRADE_COLUMN].mean() - bToAAFresh[self.FINAL_GRADE_COLUMN].mean()) if crs1FreshMin > 0 else np.nan
-        avGradeDifCrs2Soph = (aToBBSoph[self.FINAL_GRADE_COLUMN].mean() - bToABSoph[self.FINAL_GRADE_COLUMN].mean()) if crs2SophMin > 0 else np.nan
-        avGradeDifCrs1Soph = (aToBASoph[self.FINAL_GRADE_COLUMN].mean() - bToAASoph[self.FINAL_GRADE_COLUMN].mean()) if crs1SophMin > 0 else np.nan
-        avGradeDifCrs2Jun = (aToBBJun[self.FINAL_GRADE_COLUMN].mean() - bToABJun[self.FINAL_GRADE_COLUMN].mean()) if crs2JunMin > 0 else np.nan
-        avGradeDifCrs1Jun = (aToBAJun[self.FINAL_GRADE_COLUMN].mean() - bToAAJun[self.FINAL_GRADE_COLUMN].mean()) if crs1JunMin > 0 else np.nan
-        avGradeDifCrs2Sen = (aToBBSen[self.FINAL_GRADE_COLUMN].mean() - bToABSen[self.FINAL_GRADE_COLUMN].mean()) if crs2SenMin > 0 else np.nan
-        avGradeDifCrs1Sen = (aToBASen[self.FINAL_GRADE_COLUMN].mean() - bToAASen[self.FINAL_GRADE_COLUMN].mean()) if crs1SenMin > 0 else np.nan
+        nrmAlias, grdAlias = self.NORMALIZATION_COLUMN, self.FINAL_GRADE_COLUMN
+        avNormDifCrs2Fresh = (aToBBFresh[nrmAlias].mean() - bToABFresh[nrmAlias].mean()) if crs2FreshMin > 0 else np.nan
+        avNormDifCrs1Fresh = (aToBAFresh[nrmAlias].mean() - bToAAFresh[nrmAlias].mean()) if crs1FreshMin > 0 else np.nan
+        avNormDifCrs2Soph = (aToBBSoph[nrmAlias].mean() - bToABSoph[nrmAlias].mean()) if crs2SophMin > 0 else np.nan
+        avNormDifCrs1Soph = (aToBASoph[nrmAlias].mean() - bToAASoph[nrmAlias].mean()) if crs1SophMin > 0 else np.nan
+        avNormDifCrs2Jun = (aToBBJun[nrmAlias].mean() - bToABJun[nrmAlias].mean()) if crs2JunMin > 0 else np.nan
+        avNormDifCrs1Jun = (aToBAJun[nrmAlias].mean() - bToAAJun[nrmAlias].mean()) if crs1JunMin > 0 else np.nan
+        avNormDifCrs2Sen = (aToBBSen[nrmAlias].mean() - bToABSen[nrmAlias].mean()) if crs2SenMin > 0 else np.nan
+        avNormDifCrs1Sen = (aToBASen[nrmAlias].mean() - bToAASen[nrmAlias].mean()) if crs1SenMin > 0 else np.nan
+        avGradeDifCrs2Fresh = (aToBBFresh[grdAlias].mean() - bToABFresh[grdAlias].mean()) if crs2FreshMin > 0 else np.nan
+        avGradeDifCrs1Fresh = (aToBAFresh[grdAlias].mean() - bToAAFresh[grdAlias].mean()) if crs1FreshMin > 0 else np.nan
+        avGradeDifCrs2Soph = (aToBBSoph[grdAlias].mean() - bToABSoph[grdAlias].mean()) if crs2SophMin > 0 else np.nan
+        avGradeDifCrs1Soph = (aToBASoph[grdAlias].mean() - bToAASoph[grdAlias].mean()) if crs1SophMin > 0 else np.nan
+        avGradeDifCrs2Jun = (aToBBJun[grdAlias].mean() - bToABJun[grdAlias].mean()) if crs2JunMin > 0 else np.nan
+        avGradeDifCrs1Jun = (aToBAJun[grdAlias].mean() - bToAAJun[grdAlias].mean()) if crs1JunMin > 0 else np.nan
+        avGradeDifCrs2Sen = (aToBBSen[grdAlias].mean() - bToABSen[grdAlias].mean()) if crs2SenMin > 0 else np.nan
+        avGradeDifCrs1Sen = (aToBASen[grdAlias].mean() - bToAASen[grdAlias].mean()) if crs1SenMin > 0 else np.nan
 
       corr, Pvalue = pearsonr(bNorms, aNorms)
       corr1, Pvalue1 = math.nan, math.nan
@@ -1024,7 +1041,8 @@ class gradeData:
         corr3, Pvalue3 = pearsonr(concBNorms,concANorms)
       
       res = [corr, Pvalue, len(aNorms), corr1, Pvalue1, len(abANorms), corr2, Pvalue2, 
-        len(baANorms), corr3, Pvalue3, len(concANorms)]
+        len(baANorms), corr3, Pvalue3, len(concANorms), AGrd, BGrd, AstdDevGrd, BstdDevGrd, ANrm, BNrm, 
+        AstdDevNrm, BstdDevNrm, ABASDGrd, ABBSDGrd, BAASDGrd, BABSDGrd, ABASDNrm, ABBSDNrm, BAASDNrm, BABSDNrm]
 
       if classDetails:
         res += [abAMean, abANormMean, abBMean, abBNormMean, baAMean, baANormMean, 
@@ -1090,40 +1108,40 @@ class gradeData:
           else:
             classesProcessed.add(n)
             result = corrAlgDirected(d["df{0}".format(n)],d["df{0}".format(m)])
-            r, p, c, r1, p1, c1, r2, p2, c2, r3, p3, c3 = result[:12]
+            r, p, c, r1, p1, c1, r2, p2, c2, r3, p3, c3, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn = result[:28]
             
             if not math.isnan(r):
               if classDetails and sequenceDetails:
-                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[12:24]
-                avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin = result[24:]
-                f.append((n, m, r, p, c, r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm, avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin))
+                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[28:40]
+                avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin = result[40:]
+                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn, r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm, avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin))
                 if n != m:
-                  f.append((m, n, r, p, c, r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm, -avNormDifCrs2Fresh, -avNormDifCrs1Fresh, -avNormDifCrs2Soph, -avNormDifCrs1Soph, -avNormDifCrs2Jun, -avNormDifCrs1Jun, -avNormDifCrs2Sen, -avNormDifCrs1Sen, -avGradeDifCrs2Fresh, -avGradeDifCrs1Fresh, -avGradeDifCrs2Soph, -avGradeDifCrs1Soph, -avGradeDifCrs2Jun, -avGradeDifCrs1Jun, -avGradeDifCrs2Sen, -avGradeDifCrs1Sen, crs2FreshMin, crs1FreshMin, crs2SophMin, crs1SophMin, crs2JunMin, crs1JunMin, crs2SenMin, crs1SenMin))
+                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn,r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm, -avNormDifCrs2Fresh, -avNormDifCrs1Fresh, -avNormDifCrs2Soph, -avNormDifCrs1Soph, -avNormDifCrs2Jun, -avNormDifCrs1Jun, -avNormDifCrs2Sen, -avNormDifCrs1Sen, -avGradeDifCrs2Fresh, -avGradeDifCrs1Fresh, -avGradeDifCrs2Soph, -avGradeDifCrs1Soph, -avGradeDifCrs2Jun, -avGradeDifCrs1Jun, -avGradeDifCrs2Sen, -avGradeDifCrs1Sen, crs2FreshMin, crs1FreshMin, crs2SophMin, crs1SophMin, crs2JunMin, crs1JunMin, crs2SenMin, crs1SenMin))
               elif classDetails:
-                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[12:]
+                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[28:]
                 # print(n + " " + m + " " + str(r))
-                f.append((n, m, r, p, c, r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm))
+                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn,r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm))
                 if n != m:
-                  f.append((m, n, r, p, c, r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm))
+                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn, r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm))
               else:
-                f.append((n, m, r, p, c, r1, p1, c1, r2, p2, c2, r3, p3, c3))
+                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, r1, p1, c1, r2, p2, c2, r3, p3, c3))
                 if n != m:
-                  f.append((m, n, r, p, c, r2, p2, c2, r1, p1, c1, r3, p3, c3))
+                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, r2, p2, c2, r1, p1, c1, r3, p3, c3))
       classesProcessed.add(n)
       print(str(time.time() - tim))
     f[:] = [x for x in f if isinstance(x[0], str)]
     f.sort(key = lambda x: x[1])
     f.sort(key = lambda x: x[0])
     if not directed:
-      normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students'))
+      normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2'))
     else:
       if not classDetails:
-        normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent'))
+        normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)'))
       else:
         if not sequenceDetails:
-          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)'))
+          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)'))
         else:
-          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_sen)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_sen)', 'crs1FreshMin', 'crs2FreshMin', 'crs1SophMin', 'crs2SophMin', 'crs1JunMin', 'crs2JunMin', 'crs1SenMin', 'crs2SenMin'))
+          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)','corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_sen)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_sen)', 'crs1FreshMin', 'crs2FreshMin', 'crs1SophMin', 'crs2SophMin', 'crs1JunMin', 'crs2JunMin', 'crs1SenMin', 'crs2SenMin'))
     if classDetails:
       # rawGrades = {}
       # normalizedGrades = {}
@@ -1270,10 +1288,16 @@ class gradeData:
         return
     self.dropNullAndConvertToNumeric(self.NORMALIZATION_COLUMN)
     temp = self.df.loc[:,[self.STUDENT_ID_COLUMN, self.NORMALIZATION_COLUMN]]
-    temp2 = self.df.groupby(self.STUDENT_ID_COLUMN, as_index=False)
+    temp2 = temp.groupby(self.STUDENT_ID_COLUMN, as_index=False)
     means = temp2.mean()
     meanDict = dict(zip(means[self.STUDENT_ID_COLUMN], means[self.NORMALIZATION_COLUMN]))
-    means['stds'] = temp2.apply(lambda x: np.average((x[self.NORMALIZATION_COLUMN]-meanDict[x[self.STUDENT_ID_COLUMN].iloc[0]])**2))
+    print(means)
+    # print(meanDict)
+    # print(temp2)
+    stds = temp2.apply(lambda x: np.average((x[self.NORMALIZATION_COLUMN]-meanDict[x[self.STUDENT_ID_COLUMN].iloc[0]])**2))
+    stds.columns = [self.NORMALIZATION_COLUMN, 'stds']
+    means['stds'] = stds['stds']
+    print(means)
     stdDict = dict(zip(means[self.STUDENT_ID_COLUMN], means['stds']))
     def rowOp(row):
       try:
@@ -1386,8 +1410,7 @@ class gradeData:
     print('Getting grade deviations by class...')
     if not self.__requiredColumnPresent(self.FINAL_GRADE_COLUMN):
         return
-    self.dropMissingValuesInColumn(self.FINAL_GRADE_COLUMN)
-    self.convertColumnToNumeric(self.FINAL_GRADE_COLUMN)
+    self.dropNullAndConvertToNumeric(self.FINAL_GRADE_COLUMN)
     if self.CLASS_ID_AND_TERM_COLUMN not in self.df.columns:
       self.getUniqueIdentifiersForSectionsAcrossTerms()
     if not self.__requiredColumnPresent(self.CLASS_ID_AND_TERM_COLUMN):
@@ -1427,6 +1450,7 @@ class gradeData:
       self.getGPADeviations()
     if not self.__requiredColumnPresent(self.GPA_STDDEV_COLUMN):
         return
+    self.convertColumnToNumeric(self.GPA_STDDEV_COLUMN)
     if outputDropped:
       self.df[self.df[self.GPA_STDDEV_COLUMN] < minimum].to_csv(droppedCSVName, index=False)
     start = self.getEntryCount() 
@@ -1514,6 +1538,8 @@ class gradeData:
         fileName (:obj:`str`, optional): Name of the file to export. Defaults to 'csvExport.csv'.
 
     """
+    if not fileName.endswith('.csv'):
+      fileName = "".join((fileName, '.csv'))
     self.df.to_csv(fileName, index=False)
 
   def __requiredColumnPresent(self, column):
@@ -1608,8 +1634,16 @@ class classCorrelationData:
         values (:obj:`list`): Values to filter to.
         
     """
+    if not self.__requiredColumnPresent(col):
+        return
     self.printEntryCount()
-    self.df = self.df.loc[np.in1d(self.df[col],values)]
+    if all([isinstance(x,str) for x in values]):
+      lowered = [x.lower() for x in values]
+      possibilities = "|".join(lowered)
+      loweredCol = self.df[col].str.lower()
+      self.df = self.df.loc[loweredCol.str.contains(possibilities)]
+    else:
+      self.df = self.df.loc[np.in1d(self.df[col],values)]
     self.df.reset_index(inplace=True, drop=True)
     self.printEntryCount()
 
@@ -1827,6 +1861,11 @@ class classCorrelationData:
     self.makeMissingValuesNanInColumn(column)
     self.removeNanInColumn(column)      
 
+  def convertColumnToString(self, column):
+    if not self.__requiredColumnPresent(column):
+      return
+    self.df.astype({column:str}, copy=False)
+  
   def __requiredColumnPresent(self, column):
     if column not in self.df.columns:
       if edmApplication:
@@ -1835,6 +1874,8 @@ class classCorrelationData:
         print("Error: required column '" + column + "' not present in dataset. Fix or rename with the 'defineWorkingColumns' function.")
       return False
     return True
+
+  
 
 def instructorAveraging(data, filename = 'instructorAverages', minPercentage = 5.0, maxPercentage = 90.0, weighting = '#students', extraNorm = None):
   cols = ['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit','#students', '#nonStudents', 'totalStudents', '%ofStudents']
@@ -1845,7 +1886,7 @@ def instructorAveraging(data, filename = 'instructorAverages', minPercentage = 5
     print('Error: Weight not present in columns. Check spelling.')
     return
   filteredData = data.loc[(data['courseTaught'].str.replace('\d+', '') == data['futureCourse'].str.replace('\d+', '')) & 
-    (data['%ofStudents'].astype(float) <= maxPercentage) & (data['%ofStudents'].astype(float) >= minPercentage)]
+    (data['%ofStudents'].apply(float) <= maxPercentage) & (data['%ofStudents'].apply(float) >= minPercentage)]
   filteredData['courseTaught'] = data['courseTaught'].str.replace('\d+', '')
   filteredData['futureCourse'] = data['futureCourse'].str.replace('\d+', '')
   uniqueInstructors = filteredData['Instructor'].unique()
@@ -1858,18 +1899,18 @@ def instructorAveraging(data, filename = 'instructorAverages', minPercentage = 5
       rowdict = {'Instructor' : instructor}
       rowdict['Subject'] = subject
       if weighting is not None:
-        rowdict['avNormBenefit'] = np.average(subEntries['normBenefit'].astype(float), weights=subEntries[weighting].astype(float))
-        rowdict['avGradeBenefit'] = np.average(subEntries['gradeBenefit'].astype(float), weights=subEntries[weighting].astype(float))
+        rowdict['avNormBenefit'] = np.average(subEntries['normBenefit'].apply(float), weights=subEntries[weighting].apply(float))
+        rowdict['avGradeBenefit'] = np.average(subEntries['gradeBenefit'].apply(float), weights=subEntries[weighting].apply(float))
         if extraNorm is not None:
-          rowdict['av' + extraNorm] = np.average(subEntries[extraNorm].astype(float), weights=subEntries[weighting].astype(float))
+          rowdict['av' + extraNorm] = np.average(subEntries[extraNorm].apply(float), weights=subEntries[weighting].apply(float))
       else:
-        rowdict['avNormBenefit'] = np.average(subEntries['normBenefit'].astype(float))
-        rowdict['avGradeBenefit'] = np.average(subEntries['gradeBenefit'].astype(float))
+        rowdict['avNormBenefit'] = np.average(subEntries['normBenefit'].apply(float))
+        rowdict['avGradeBenefit'] = np.average(subEntries['gradeBenefit'].apply(float))
         if extraNorm is not None:
-          rowdict['av' + extraNorm] = np.average(subEntries[extraNorm].astype(float))
-      rowdict['students/entries'] = sum(subEntries['#students'].astype(int))
-      rowdict['avStudents'] = np.average(subEntries['#students'].astype(int))
-      rowdict['av%ofStudents'] = np.average(subEntries['%ofStudents'].astype(float))
+          rowdict['av' + extraNorm] = np.average(subEntries[extraNorm].apply(float))
+      rowdict['students/entries'] = sum(subEntries['#students'].apply(int))
+      rowdict['avStudents'] = np.average(subEntries['#students'].apply(int))
+      rowdict['av%ofStudents'] = np.average(subEntries['%ofStudents'].apply(float))
       rowlist.append(rowdict)
   if extraNorm is not None:
     completeDf = pd.DataFrame(rowlist, columns=['Instructor','Subject','avNormBenefit','avGradeBenefit','av' + extraNorm,'students/entries','avStudents', 'av%ofStudents'])
@@ -1889,14 +1930,91 @@ def instructorAveraging(data, filename = 'instructorAverages', minPercentage = 5
   completeDf.to_csv(filename, index=False)
   return completeDf
 
-def pvalOfSeries(data):
-  data = pd.to_numeric(data)
-  normMean, normStd = data.mean(), data.std()
-  zval = lambda x: (x - normMean) / normStd
-  pval = lambda x: (1 - sciNorm.cdf(abs(x))) * 2
-  return data.apply(zval).apply(pval)
+def instructorAveraging2(data, filename = 'instructorAverages', minPercentage = 5.0, maxPercentage = 90.0, weighting = '#students', extraNorm = None):
+  cols = ['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit','#students', '#nonStudents', 'totalStudents', '%ofStudents']
+  if not all(x in data.columns for x in cols):
+    print('Error: Columns missing. Did you use the instructorRanksAllClasses method?')
+    return
+  if weighting not in data.columns and weighting is not None:
+    print('Error: Weight not present in columns. Check spelling.')
+    return
+  filteredData = data.loc[(data['%ofStudents'].apply(float) <= maxPercentage) & (data['%ofStudents'].apply(float) >= minPercentage)]
+  filteredData['courseTaught'] = data['courseTaught'].str.replace('\d+', '')
+  filteredData['futureCourse'] = data['futureCourse'].str.replace('\d+', '')
+  uniqueInstructors = filteredData['Instructor'].unique()
+  grouped = filteredData.groupby('Instructor')
+  rowlist = []
+  for instructor in uniqueInstructors:
+    entries = grouped.get_group(instructor)
+    for subject in entries['courseTaught'].unique():
+      subEntries = entries.loc[entries['courseTaught'] == subject]
+      for subject2 in subEntries['futureCourse'].unique():
+        sub2Entries = subEntries.loc[subEntries['futureCourse'] == subject2]
+        rowdict = {'Instructor' : instructor}
+        rowdict['firstSubject'] = subject
+        rowdict['secondSubject'] = subject2
+        if weighting is not None:
+          rowdict['avNormBenefit'] = np.average(sub2Entries['normBenefit'].apply(float), weights=sub2Entries[weighting].apply(float))
+          rowdict['avGradeBenefit'] = np.average(sub2Entries['gradeBenefit'].apply(float), weights=sub2Entries[weighting].apply(float))
+          if extraNorm is not None:
+            rowdict['av' + extraNorm] = np.average(sub2Entries[extraNorm].apply(float), weights=sub2Entries[weighting].apply(float))
+        else:
+          rowdict['avNormBenefit'] = np.average(sub2Entries['normBenefit'].apply(float))
+          rowdict['avGradeBenefit'] = np.average(sub2Entries['gradeBenefit'].apply(float))
+          if extraNorm is not None:
+            rowdict['av' + extraNorm] = np.average(sub2Entries[extraNorm].apply(float))
+        rowdict['students/entries'] = sum(sub2Entries['#students'].apply(int))
+        rowdict['avStudents'] = np.average(sub2Entries['#students'].apply(int))
+        rowdict['av%ofStudents'] = np.average(sub2Entries['%ofStudents'].apply(float))
+      rowlist.append(rowdict)
+  if extraNorm is not None:
+    completeDf = pd.DataFrame(rowlist, columns=['Instructor','firstSubject','secondSubject','avNormBenefit','avGradeBenefit','av' + extraNorm,'students/entries','avStudents', 'av%ofStudents'])
+  else:
+    completeDf = pd.DataFrame(rowlist, columns=['Instructor','firstSubject','secondSubject','avNormBenefit','avGradeBenefit','students/entries','avStudents', 'av%ofStudents'])
+  completeDf.sort_values(by=['secondSubject','firstSubject','Instructor'])
+  completeDf.reset_index(inplace = True, drop=True)
+  completeDf['grade*Norm*Sign(norm)'] = completeDf['avGradeBenefit'] * completeDf['avNormBenefit'] * np.sign(completeDf['avNormBenefit'])
+  completeDf['avNormBenefit' + pvalSuffix] = pvalOfSeries(completeDf['avNormBenefit'])
+  completeDf['avGradeBenefit' + pvalSuffix] = pvalOfSeries(completeDf['avGradeBenefit'])
+  completeDf['grade*Norm*Sign(norm)' + pvalSuffix] = pvalOfSeries(completeDf['grade*Norm*Sign(norm)'])
+  if extraNorm is not None:
+    completeDf['av' + extraNorm + pvalSuffix] = pvalOfSeries(completeDf['av' + extraNorm])
 
-def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', sortedAscending = True):
+  if not filename.endswith('.csv'):
+    filename = "".join((filename, '.csv'))
+  completeDf.to_csv(filename, index=False)
+  return completeDf
+
+def analyzePairs(data):
+  data[data.columns[1]] = data[data.columns[1]].str.replace('\d+', '')
+  data[data.columns[2]] = data[data.columns[2]].str.replace('\d+', '')
+  same = sum(data[data.columns[1]] == data[data.columns[2]])
+  # different = len(data.index) - same
+  res = same / len(data.index)
+  print(str(same) + ' / ' + str(len(data.index)) + ' or ' + str(round(res*100,3)) + '%')
+  return res
+
+def pvalOfSeries(data):
+  # data.astype(float, copy=False)
+  data = data.apply(float)
+  normMean, normStd = data.mean(), data.std()
+  # zval = lambda x: (x - normMean) / normStd
+  # pval = lambda x: (1 - sciNorm.cdf(abs(x))) * 2
+  # return data.apply(zval).apply(pval)
+  # print('converted, did mean and std')
+  # zval = lambda x: (x - normMean) / normStd
+  pval = lambda x: (1 - sciNorm.cdf(abs((x - normMean) / normStd))) * 2
+  return pval(data.values)
+
+def tTestOfTwoSeries(data1,data2):
+  data1,data2 = data1.apply(float),data2.apply(float)
+  data1m, data1std = data1.mean(), data1.std()
+  data2m, data2std = data2.mean(), data2.std()
+  data1n, data2n = data1.size, data2.size
+  tTest = (data1m - data2m) / math.sqrt(((data1std**2)/data1n) + ((data2std**2)/data2n))
+  return tTest
+
+def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', sortedAscending = True, logScale = False,xlbl='Value',ylbl = 'Frequency'):
   data2 = data.replace(' ', np.nan)
   data2.dropna(inplace=True)
   # data2.sort_values(inplace=True)
@@ -1912,12 +2030,16 @@ def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', s
     dataList = histData.tolist()
     frequencies, edges = np.histogram(dataList, (int(math.sqrt(len(dataList))) if (len(dataList) > 30) else (max(len(dataList) // 3 , 1))), (min(dataList), max(dataList)))
     #print('Values: %s, Edges: %s' % (frequencies.shape[0], edges.shape[0]))
+    
+    if logScale:
+      frequencies = [math.log10(freq) if freq > 0 else freq for freq in frequencies]
+      ylbl += ' (log 10 scale)'
     histo = hv.Histogram((edges, frequencies))
-    histo.opts(opts.Histogram(xlabel='Value', ylabel='Frequency', title=graphTitle))
+    histo.opts(opts.Histogram(xlabel=xlbl, ylabel=ylbl, title=graphTitle, fontsize={'title': 40, 'labels': 20, 'xticks': 20, 'yticks': 20}))
     subtitle= 'mean: ' + str(round(sum(dataList) / len(dataList), 3))+ ', n = ' + str(len(dataList))
     hv.output(size=250)
     graph = hv.render(histo)
-    graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+    graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="30pt"), 'above')
     output_file(outDir +fileName + '.html', mode='inline')
     save(graph)
     show(graph)
@@ -1925,18 +2047,18 @@ def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', s
       hv.output(size=300)
       histo.opts(toolbar=None)
       graph = hv.render(histo)
-      graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+      graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="30pt"), 'above')
       export_png(graph, filename=outDir +fileName + '.png')
   else:
     barData = histData.value_counts(dropna=False)
     dictList = sorted(zip(barData.index, barData.values), key = lambda x: x[sortedAscending])
     # print(dictList)
     bar = hv.Bars(dictList)
-    bar.opts(opts.Bars(xlabel='Value', ylabel='Frequency', title=graphTitle))
+    bar.opts(opts.Bars(xlabel=xlbl, ylabel=ylbl, title=graphTitle))
     subtitle= 'n = ' + str(len(dictList))
     hv.output(size=250)
     graph = hv.render(bar)
-    graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+    graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="30pt"), 'above')
     output_file(outDir +fileName + '.html', mode='inline')
     save(graph)
     show(graph)
@@ -1944,7 +2066,7 @@ def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', s
       hv.output(size=300)
       bar.opts(toolbar=None)
       graph2 = hv.render(bar)
-      graph2.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+      graph2.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="30pt"), 'above')
       export_png(graph2, filename=outDir +fileName + '.png')
   hv.output(size=125)
     
