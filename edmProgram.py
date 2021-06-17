@@ -8,7 +8,7 @@ from PyQt5.QtGui import *
 import pandas as pd
 import numpy as np
 import edmlib
-from edmlib import gradeData, classCorrelationData
+from edmlib import *
 class MyWindow(QMainWindow):
     def __init__(self):
         super(MyWindow, self).__init__()
@@ -62,6 +62,7 @@ class MyWindow(QMainWindow):
             print('File opened.')
             self.doColumnThings()
             self.setGeneralButtons()
+            # print('File loaded')
 
         self.threadpool = QThreadPool()
         self.show()
@@ -988,10 +989,10 @@ class MyWindow(QMainWindow):
             self.df = pd.read_csv(fileName, dtype=str)
             if {'course1', 'course2', 'corr', 'P-value', '#students'}.issubset(self.df.columns):
               self.correlationFile = True
-              self.grades = classCorrelationData(self.df)
+              self.grades = classCorrelationData(self.df, copyDataFrame=False)
             else:
               self.correlationFile = False
-              self.grades = gradeData(self.df)
+              self.grades = gradeData(self.df, copyDataFrame=False)
               self.getLastKnownColumns()
             self.model = TableModel(self.grades.df)
             self.tableView.setModel(self.model)
@@ -1000,6 +1001,7 @@ class MyWindow(QMainWindow):
             self.settings.setValue(getpass.getuser()+"lastFile", fileName)
             self.setWindowTitle("EDM - " + self.settings.value("lastFile",None))
         except: 
+            print("Unexpected error:", sys.exc_info())
             pass
         
     def writeCsv(self, fileName):
@@ -1784,7 +1786,7 @@ class csvPreview(QDialog):
               self.df = pd.read_csv(data, dtype=str)
             elif isinstance(data, pd.DataFrame):
               self.df = data
-            self.grades = gradeData(self.df)
+            self.grades = gradeData(self.df, copyDataFrame=False)
             self.model = TableModel(self.grades.df)
             self.tableView.setModel(self.model)
             self.tableView.setSortingEnabled(True)
