@@ -739,6 +739,9 @@ class gradeData:
         :obj:`pandas.dataframe`: Pandas dataframe with columns indicating the instructor, the class taken, the future class, the normalized benefit to students, the grade point benefit to students, the number of students used to calculate for that instructor / class combination, as well as the number of students on the opposite side of that calculation (students in future class who did not take that instructor before).
 
     """
+    # function goes through every possible pair of classes
+    # minStudents is set to 20 to make sure at least 20 students from the initial class with a professor went on to take the second class. This ensures that results are not skewed by too few students
+    # directionality is set to .8 to make sure that at least 80 percent of students that took both classes took them in the same order
     if not self.__requiredColumnPresent(self.FACULTY_ID_COLUMN):
       return
     if self.NORMALIZATION_COLUMN not in self.df.columns:
