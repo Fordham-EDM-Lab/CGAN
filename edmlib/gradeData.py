@@ -771,27 +771,27 @@ class gradeData:
       for instructor, count in instructors.items(): # loops through instructors that met the requirement
         tookInstructor = firstClassEntries.loc[firstClassEntries[self.FACULTY_ID_COLUMN] == instructor] # filters through the dataframe of the first class down to the students who took the specific instructor
         studentsWithInstructor = tookInstructor[self.STUDENT_ID_COLUMN].unique() # gets list of students that took the specific instructor
-        secondClassWithPastInstructor = secondClassEntries[self.STUDENT_ID_COLUMN].isin(studentsWithInstructor) # takes all students that took the instructor for the first class and filters through the dataframe of the second class
-        newCount = sum(secondClassWithPastInstructor)
-        nonStudents = len(secondClassWithPastInstructor.index) - newCount
-        if nonStudents > 0:
-          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
-          if stdDev > 0:
-            entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor]
-            entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor]
-            AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean()
-            AverageGradeWithoutInstructor = entriesWithoutPastInstructor[self.FINAL_GRADE_COLUMN].mean()
+        secondClassWithPastInstructor = secondClassEntries[self.STUDENT_ID_COLUMN].isin(studentsWithInstructor) # takes all students that took the instructor for the first class and filters through the dataframe of the second class down to the same students
+        newCount = sum(secondClassWithPastInstructor) # finds how many students took both classes
+        nonStudents = len(secondClassWithPastInstructor.index) - newCount # finds how many students took the second class but did not have the first instructor
+        if nonStudents > 0: # ensures that there are some students that did not take the instructor
+          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std() # calculates standard deviation of grades in the second class
+          if stdDev > 0: # ensures that every student did not recieve the same grade
+            entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who took the instructor  
+            entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who did not take the instructor 
+            AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean() # gets mean grade from group of people in the second class who took the instructor
+            AverageGradeWithoutInstructor = entriesWithoutPastInstructor[self.FINAL_GRADE_COLUMN].mean() # gets mean grade from group of people in the second class who did not take the instructor
             rowDict = {}
             rowDict['Instructor'] = instructor
             rowDict['courseTaught'] = classOne
             rowDict['futureCourse'] = classTwo
-            rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean()
-            rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev
-            if otherRank is not None:
+            rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean() # subtracts the mean of students who did not take the instructor from the mean of students who took the instructor
+            rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev # subtracts the average of students who did not take the instructor from the average of students who took the instructor and divides by standard deviation (because it is not centered at 0)
+            if otherRank is not None: # otherRank allows one to include some other value in a different column
               rowDict[otherRank] = entriesWithPastInstructor[otherRank].mean() - entriesWithoutPastInstructor[otherRank].mean()
             rowDict['#students'] = newCount
             rowDict['#nonStudents'] = nonStudents
-            rowList.append(rowDict)
+            rowList.append(rowDict) # rowList is a list of dictionaries
     print('here')
     classes = self.df[self.CLASS_CODE_COLUMN].unique().tolist() # gets all classes
     numClasses = len(classes)
@@ -824,7 +824,7 @@ class gradeData:
       completeDf = pd.DataFrame(rowList, columns=['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit','#students', '#nonStudents'])
     else:
       completeDf = pd.DataFrame(rowList, columns=['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit', otherRank, '#students', '#nonStudents'])
-    completeDf.sort_values(by=['futureCourse','courseTaught','Instructor'])
+    completeDf.sort_values(by=['futureCourse','courseTaught','Instructor']) # sorts columns alphabetically
     completeDf['Instructor'].replace(' ', np.nan, inplace=True)
     completeDf.dropna(subset=['Instructor'], inplace=True)
     completeDf.reset_index(inplace = True, drop=True)
