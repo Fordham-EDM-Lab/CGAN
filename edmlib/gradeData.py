@@ -68,8 +68,8 @@ class gradeData:
       self.df = pd.read_csv(self.sourceFile, dtype=str)
 
     elif type(sourceFileOrDataFrame).__name__ == 'DataFrame':
-# JH: Consider adding a bool = True to make a copy, set False if no copy.
-#      if not edmApplication:
+      # JH: Consider adding a bool = True to make a copy, set False if no copy.
+      #      if not edmApplication:
       if copyDataFrame:
         self.df = sourceFileOrDataFrame.copy()
       else:
@@ -223,8 +223,8 @@ class gradeData:
       output_file(outDir +fileName + '.html', mode='inline')
       save(graph)
       show(graph)
-# JH: Why not add a bool for exportPng=True, set False when in edmApplication?
-#      if not edmApplication:
+    # JH: Why not add a bool for exportPng=True, set False when in edmApplication?
+    #      if not edmApplication:
       if exportPNG:
         histo.opts(toolbar=None)
         graph = hv.render(histo)
@@ -1520,7 +1520,7 @@ class gradeData:
 
   def __requiredColumnPresent(self, column):
     if column not in self.df.columns:
-# JH: Shouldn't the caller decide what to print? 
+    # JH: Shouldn't the caller decide what to print? 
       if edmlib.edmApplication:
         print("Error: required column '" + column + "' not present in dataset. Fix by right clicking / setting columns.")
       else:
