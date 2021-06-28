@@ -176,38 +176,40 @@ class gradeData:
         minClasses (:obj:`int`): Number of classes a student needs to have on record to count GPA. Default 36.
 
     """
+    # Check to see if Student ID and Final Grade columns are present
     if not self.__requiredColumnPresent(self.FINAL_GRADE_COLUMN):
       return
     if not self.__requiredColumnPresent(self.STUDENT_ID_COLUMN):
       return
     self.df[self.FINAL_GRADE_COLUMN] = pd.to_numeric(self.df[self.FINAL_GRADE_COLUMN], errors='coerce')
-    if self.CLASS_CREDITS_COLUMN in self.df.columns:
+    # Access each student student final grade and credit numbers
+    if self.CLASS_CREDITS_COLUMN in self.df.columns: # check if class credits is present
       temp = self.df.loc[:, [self.STUDENT_ID_COLUMN, self.CLASS_CREDITS_COLUMN, self.FINAL_GRADE_COLUMN]]
     else:
       temp = self.df.loc[:, [self.STUDENT_ID_COLUMN, self.FINAL_GRADE_COLUMN]]
     classCount = temp[self.STUDENT_ID_COLUMN].value_counts()
-    temp = temp[temp[self.STUDENT_ID_COLUMN].isin(classCount[classCount >= minClasses].index)]
+    temp = temp[temp[self.STUDENT_ID_COLUMN].isin(classCount[classCount >= minClasses].index)] # only count students that take more than minClasses
     print('Number of Students: ' + str(temp[self.STUDENT_ID_COLUMN].nunique()))
     if temp[self.STUDENT_ID_COLUMN].nunique() == 0:
       print('Error: no students meet the criteria given')
       return
-    if self.CLASS_CREDITS_COLUMN in self.df.columns:
-      temp[self.CLASS_CREDITS_COLUMN] = pd.to_numeric(temp[self.CLASS_CREDITS_COLUMN], errors='coerce')
-      temp['classPoints'] = temp[self.CLASS_CREDITS_COLUMN] * temp[self.FINAL_GRADE_COLUMN]
+    if self.CLASS_CREDITS_COLUMN in self.df.columns: # check if class credits is present
+      temp[self.CLASS_CREDITS_COLUMN] = pd.to_numeric(temp[self.CLASS_CREDITS_COLUMN], errors='coerce') # convert all credits to numeric type
+      temp['classPoints'] = temp[self.CLASS_CREDITS_COLUMN] * temp[self.FINAL_GRADE_COLUMN] # calculate Grade * Credit numbers
       sums = temp.groupby(self.STUDENT_ID_COLUMN).sum()
-      sums['gpa'] = sums['classPoints'] / sums[self.CLASS_CREDITS_COLUMN]
+      sums['gpa'] = sums['classPoints'] / sums[self.CLASS_CREDITS_COLUMN] # calculate weighted GPA
       gpas = sums['gpa'].tolist()
-    else:
+    else: # don't count class credits if they are not present
       gradeAverages = temp.groupby(self.STUDENT_ID_COLUMN).mean()
       gpas = gradeAverages[self.FINAL_GRADE_COLUMN].tolist()
     mean = sum(gpas) / len(gpas)
     grade = 4.0
-    print(">= "+ str(grade) + ": " + str(len([x for x in gpas if x >= grade])))
+    print(">= "+ str(grade) + ": " + str(len([x for x in gpas if x >= grade]))) # print how many grades are larger than a certain value
     while grade != 1.0:
-      lowerGrade = round(grade - 0.1, 1)
-      print(str(lowerGrade) + " - " + str(grade) + ": " + str(len([x for x in gpas if x >= lowerGrade and x < grade])))
+      lowerGrade = round(grade - 0.1, 1) # rounding results
+      print(str(lowerGrade) + " - " + str(grade) + ": " + str(len([x for x in gpas if x >= lowerGrade and x < grade]))) # print how many grades are between 2 certain values
       grade = round(grade - 0.1, 1)
-    print("< "+ str(grade) + ": " + str(len([x for x in gpas if x < grade])))
+    print("< "+ str(grade) + ": " + str(len([x for x in gpas if x < grade]))) # print how many grades are smaller than a certain value
     print('mean: ' + str(mean))
     if makeHistogram:
       lowest = round(float('%.1f'%(min(gpas))), 1)

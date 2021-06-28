@@ -340,7 +340,7 @@ class classCorrelationData:
   
   def __requiredColumnPresent(self, column):
     if column not in self.df.columns:
-# JH: Should this error be here or can we use two separate decorations?
+  # JH: Should this error be here or can we use two separate decorations?
       if edmlib.edmApplication:
         print("Error: required column '" + column + "' not present in dataset. Fix by right clicking / setting columns.")
       else:
