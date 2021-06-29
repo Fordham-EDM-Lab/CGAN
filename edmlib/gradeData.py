@@ -846,6 +846,8 @@ class gradeData:
       instructorAveraging(completeDf, subjectFileName)
     return completeDf # outputs completed dataframe
 
+  #Note: Has an error when sequenceDetails = True
+  #Every other parameter seems to work fine
   def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False):
     """Returns a pandas dataframe with correlations between all available classes based on grades, after normalization.
 
@@ -859,11 +861,19 @@ class gradeData:
 
     """
     print("Getting correlations...")
+    #Keep track of time to output how long the function takes at the end
     start_time = time.time()
+    #Change nSharedStudents to 2 if it is less than 2
     nSharedStudents = max(nSharedStudents, 2)
+    #Create a column of normalized grades in self
     if self.NORMALIZATION_COLUMN not in self.df.columns:
       self.getNormalizationColumn()
+    if "semNumber" not in self.df.columns:
+      self.makeSemesterNumberColumn()
+    #The following code ensures that all required columns exist before continuing
     if not self.__requiredColumnPresent(self.NORMALIZATION_COLUMN):
+      return
+    if not self.__requiredColumnPresent(self.STUDENT_ID_COLUMN):
       return
     if not self.__requiredColumnPresent(self.STUDENT_ID_COLUMN):
       return
@@ -875,23 +885,46 @@ class gradeData:
       if not self.__requiredColumnPresent(self.STUDENT_YEAR_COLUMN):
         return
       self.df[self.STUDENT_YEAR_COLUMN] = pd.to_numeric(self.df[self.STUDENT_YEAR_COLUMN],errors='ignore')
-
+    #This function is used when directed is False
     def corrAlg(a, b): 
+      #norms is a DataFrame that includes data from a of students in b
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
+      #Remove missing values
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
       if len(norms) >= nSharedStudents:
+        #Set the index of norms to Student ID and sort
         norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
         norms.sort_index(inplace=True)
+        #norms2 is a DataFrame that includes data from b of students in a
         norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(a[self.STUDENT_ID_COLUMN].values)]
+        #Set the index of norms2 to Student ID and sort
         norms2.set_index(self.STUDENT_ID_COLUMN, inplace=True)
         norms2.sort_index(inplace=True)
+        #Use pearsonr to get correlation and p-value
         corr, Pvalue = pearsonr(norms[self.NORMALIZATION_COLUMN], norms2[self.NORMALIZATION_COLUMN])
         return [corr, Pvalue, len(norms.index)]
+      #Return math.nan for each value if there aren't enough students
       else:
         return [math.nan, math.nan, math.nan]
     def corrAlgDirected(a, b): 
+      #Set semsBetweenClassesLimit, which limits the max number of semesters between classes
+      #To Do: make this an argument of the function as a whole
+      #If this value is negative then no limit is applied
+      semsBetweenClassesLimit = -1
+      #Set norms and norms2 in the same way as corAlg
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
+      if (semsBetweenClassesLimit >= 0):
+        #Make a semesterDifference column
+        semesterDifference = []
+        #Cycle through each student to get the number of semester between each class
+        for SID in norms.SID:
+          termA = norms.loc[norms.SID == SID].semNumber.iloc[0]
+          termB = b.loc[b.SID == SID].semNumber.iloc[0]
+          semesterDifference.append(abs(termA - termB))
+        #Add this list as a column in norms and remove students who took too many semesters between classes
+        norms["semDifference"] = semesterDifference
+        norms = norms.loc[norms.semDifference <= semsBetweenClassesLimit]
       if len(norms) < nSharedStudents and not sequenceDetails:
         return ([math.nan] * 36)
       elif len(norms) < nSharedStudents:
@@ -899,9 +932,13 @@ class gradeData:
       norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms.sort_index(inplace=True)
       aNorms = norms[self.NORMALIZATION_COLUMN]
-      norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(a[self.STUDENT_ID_COLUMN].values)]
+      norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(norms.index)]
       norms2.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms2.sort_index(inplace=True)
+      #Define more, less, concurrentA, and concurrentB to create columns in the DataFrame
+      #less: A taken before B
+      #more: B taken before A
+      #concurrent A and concurrent B: A and B taken at the same time
       if np.issubdtype(norms[self.TERM_COLUMN].dtype, np.number) and np.issubdtype(norms2[self.TERM_COLUMN].dtype, np.number) and numLibInstalled:
         n = norms[self.TERM_COLUMN].values
         m = norms2[self.TERM_COLUMN].values
@@ -910,16 +947,24 @@ class gradeData:
         same = numexpr.evaluate('(n == m)')
         concurrentA = norms.loc[same]
         concurrentB = norms2.loc[same]
+      #The same calculation but without numexpr (presumably is slower)
       else:
         less = norms[self.TERM_COLUMN].values < norms2[self.TERM_COLUMN].values
         more = norms[self.TERM_COLUMN].values > norms2[self.TERM_COLUMN].values
         concurrentA = norms.loc[(~less) & (~more)]
         concurrentB = norms2.loc[(~less) & (~more)]
+      #Here all of the columns are created as lists
+      #In aToBA, the aToB means that we're looking at students who took course A before course B, the A at the end means we're looking at grades in class A
+      #The same naming scheme applies to all of the columns below
       aToBA = norms.loc[less]
       bToAA = norms.loc[more]
       aToBB = norms2.loc[less]
       bToAB = norms2.loc[more]
       bNorms = norms2[self.NORMALIZATION_COLUMN].dropna()
+      #abB is used here to mean aToBB
+      #So essentially this is normalized grades in b from students who took class a before class b
+      #The same naming scheme applies to all of the columns below
+      #conc can be used instead of ab or ba if the classes are taken concurrently
       abBNorms = aToBB[self.NORMALIZATION_COLUMN].dropna()
       baBNorms = bToAB[self.NORMALIZATION_COLUMN].dropna()
       concBNorms = concurrentB[self.NORMALIZATION_COLUMN].dropna()
@@ -958,6 +1003,7 @@ class gradeData:
       
       if sequenceDetails:
         def yearTruths(x):
+          #This may cause an error, should fix if sequence details are used
           return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), 
                   numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
         c = aToBA[self.STUDENT_YEAR_COLUMN].values
@@ -1011,10 +1057,12 @@ class gradeData:
         avGradeDifCrs2Sen = (aToBBSen[grdAlias].mean() - bToABSen[grdAlias].mean()) if crs2SenMin > 0 else np.nan
         avGradeDifCrs1Sen = (aToBASen[grdAlias].mean() - bToAASen[grdAlias].mean()) if crs1SenMin > 0 else np.nan
 
+      #Calculate correlation and p-value of normalized grades
       corr, Pvalue = pearsonr(bNorms, aNorms)
       corr1, Pvalue1 = math.nan, math.nan
       corr2, Pvalue2 = math.nan, math.nan
       corr3, Pvalue3 = math.nan, math.nan
+      #Calculate correlation and p-value of normalized grades when A is taken before, after, and concurrent to B
       if len(abANorms) >= 2:
         corr1, Pvalue1 = pearsonr(abBNorms,abANorms)
       if len(baANorms) >= 2:
@@ -1022,10 +1070,12 @@ class gradeData:
       if len(concANorms) >= 2:
         corr3, Pvalue3 = pearsonr(concBNorms,concANorms)
       
+      #res is a list of all the data calculated above
       res = [corr, Pvalue, len(aNorms), corr1, Pvalue1, len(abANorms), corr2, Pvalue2, 
         len(baANorms), corr3, Pvalue3, len(concANorms), AGrd, BGrd, AstdDevGrd, BstdDevGrd, ANrm, BNrm, 
         AstdDevNrm, BstdDevNrm, ABASDGrd, ABBSDGrd, BAASDGrd, BABSDGrd, ABASDNrm, ABBSDNrm, BAASDNrm, BABSDNrm]
 
+      #add more data if using classDetails or sequenceDetails
       if classDetails:
         res += [abAMean, abANormMean, abBMean, abBNormMean, baAMean, baANormMean, 
         baBMean, baBNormMean, concAMean, concANormMean, concBMean, concBNormMean]
@@ -1036,32 +1086,37 @@ class gradeData:
                 avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen,
                 crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, 
                 crs1SenMin, crs2SenMin]
+      #return the list of data
       return res
 
+    #Create a list classes with each unique class
     print("Getting classes...")
     classes = self.getListOfClassCodes()
+    #d is a dictionary with keys as classes and values as dataframes with all the data of students in that respective class
     d={}
     print("Organizing classes...")
+    #Check that a class code column exists (not sure why this isn't with the other checks at the top)
     if not self._gradeData__requiredColumnPresent(self.CLASS_CODE_COLUMN):
       return
     
     if classDetails:
+      #Create dictionaries for grades, normalized grades, and standard deviations of grades
       rawGrades = {}
       normalizedGrades = {}
       stdDevGrade = {}
+      #Convert grade columns to numeric values
       self.convertColumnToNumeric(self.FINAL_GRADE_COLUMN)
       self.convertColumnToNumeric(self.NORMALIZATION_COLUMN)
       self.convertColumnToNumeric(self.GPA_STDDEV_COLUMN)
-      
+        
+    #Fill out the keys of d as classes and the values of d as a dataframe of all students in that class
     for n, group in self.df.groupby(self.CLASS_CODE_COLUMN):
+
       d["df{0}".format(n)] = group
       d["df{0}".format(n)] = d["df{0}".format(n)].drop_duplicates(subset="SID", keep=False)
-      # d["df{0}".format(n)].sort_values(by=[self.STUDENT_ID_COLUMN], inplace=True)
       if classDetails:
         raw = d["df{0}".format(n)][self.FINAL_GRADE_COLUMN].tolist()
         rawGrades[n] = str(sum(raw) / len(raw))
-        # normalized = d["df{0}".format(n)][self.NORMALIZATION_COLUMN].tolist()
-        # normalizedGrades[n] = str(sum(normalized) / len(normalized))
         stdDevGrade[n] = str(d["df{0}".format(n)][self.GPA_STDDEV_COLUMN].iloc[0])
         # print(rawGrades[n])
         # print(normalizedGrades[n])
@@ -1072,13 +1127,18 @@ class gradeData:
     totalClasses = len(classes)
     print("Sorting classes...")
     classes.sort()
+    #Declare classesProcessed as an empty set
     classesProcessed = set()
+    #Cycle through each n in classes
     for n in classes:
       classCount = classCount + 1
       print("class " + str(classCount) + "/" + str(totalClasses))
       tim = time.time()
+      #Cycle through each class m in classes
       for m in classes:
+        #Checks to make sure this is a new pair of classes
         if m not in classesProcessed:
+          #If not directed, use corAlg to generate correlation r, p-value p, and number of students c, then append them all to f
           if not directed:
             classesProcessed.add(n)
             result = corrAlg(d["df{0}".format(n)],d["df{0}".format(m)])
@@ -1087,11 +1147,12 @@ class gradeData:
               f.append((n, m, r, p, c))
               if n != m:
                 f.append((m, n, r, p, c))
+          #If directed, use corrAlgDirected to generate a lot of data and add it to f
           else:
             classesProcessed.add(n)
             result = corrAlgDirected(d["df{0}".format(n)],d["df{0}".format(m)])
             r, p, c, r1, p1, c1, r2, p2, c2, r3, p3, c3, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn = result[:28]
-            
+            #Only gets the last columns of the data if the correlation exists
             if not math.isnan(r):
               if classDetails and sequenceDetails:
                 abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[28:40]
@@ -1109,33 +1170,34 @@ class gradeData:
                 f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, r1, p1, c1, r2, p2, c2, r3, p3, c3))
                 if n != m:
                   f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, r2, p2, c2, r1, p1, c1, r3, p3, c3))
+      #add n to classesProcessed and print the time it took to generate the correlation data            
       classesProcessed.add(n)
       print(str(time.time() - tim))
+    #After cycling through each class
     f[:] = [x for x in f if isinstance(x[0], str)]
     f.sort(key = lambda x: x[1])
     f.sort(key = lambda x: x[0])
+    #Create a DataFrame using data in f based on the function arguments
+    #Updated with the correct number of columns for some cases
     if not directed:
-      normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2'))
+      normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students'))
     else:
       if not classDetails:
-        normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)'))
+        normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent'))
       else:
         if not sequenceDetails:
           normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)'))
         else:
           normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)','corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_sen)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_sen)', 'crs1FreshMin', 'crs2FreshMin', 'crs1SophMin', 'crs2SophMin', 'crs1JunMin', 'crs2JunMin', 'crs1SenMin', 'crs2SenMin'))
     if classDetails:
-      # rawGrades = {}
-      # normalizedGrades = {}
-      # stdDevGrade = {}
+      #Add more columns for classDetails
       normoutput['course1GradeMean'] = normoutput['course1'].apply(lambda x: rawGrades[x])
-      # normoutput['course1NormalizedMean'] = normoutput['course1'].apply(lambda x: normalizedGrades[x])
       normoutput['course2GradeMean'] = normoutput['course2'].apply(lambda x: rawGrades[x])
-      # normoutput['course2NormalizedMean'] = normoutput['course2'].apply(lambda x: normalizedGrades[x])
       normoutput['course1StdDev'] = normoutput['course1'].apply(lambda x: stdDevGrade[x])
       normoutput['course2StdDev'] = normoutput['course2'].apply(lambda x: stdDevGrade[x])
       normoutput['(Av.GradeCrs1->2(crs1)) - (Av.GradeCrs2->1(crs1))'] = normoutput['Av.GradeCrs1->2(crs1)'] - normoutput['Av.GradeCrs2->1(crs1)']
       normoutput['(Av.GradeCrs1->2(crs2)) - (Av.GradeCrs2->1(crs2))'] = normoutput['Av.GradeCrs1->2(crs2)'] - normoutput['Av.GradeCrs2->1(crs2)']
+      #The following 2 columns are what is used in Tess's paper
       normoutput['(Av.NormCrs1->2(crs1)) - (Av.NormCrs2->1(crs1))'] = normoutput['Av.NormCrs1->2(crs1)'] - normoutput['Av.NormCrs2->1(crs1)']
       normoutput['(Av.NormCrs1->2(crs2)) - (Av.NormCrs2->1(crs2))'] = normoutput['Av.NormCrs1->2(crs2)'] - normoutput['Av.NormCrs2->1(crs2)']
       normoutput['(Av.GradeCrs1->2(crs1)) - (Av.GradeConcurrent(crs1))'] = normoutput['Av.GradeCrs1->2(crs1)'] - normoutput['Av.GradeConcurrent(crs1)']
@@ -1152,7 +1214,7 @@ class gradeData:
       normoutput['(#studentsCrs2->1) / (Total # students)'] = normoutput['#studentsCrs2->1'] / normoutput['#students']
       normoutput['(#studentsCrsConcurrent) / (Total # students)'] = normoutput['#studentsCrsConcurrent'] / normoutput['#students']
 
-    # normoutput = normoutput.dropna(how='all')
+    #print details about the function
     print(str((totalClasses ** 2) - len(normoutput.index)) + ' class correlations dropped out of ' 
     + str(totalClasses ** 2) + ' from ' + str(nSharedStudents) + ' shared student threshold.')
     print(str(len(normoutput.index)) + ' correlations calculated. ' + str(time.time() - start_time) + ' seconds.')
@@ -1533,4 +1595,35 @@ class gradeData:
         print("Error: required column '" + column + "' not present in dataset. Fix or rename with the 'defineWorkingColumns' function.")
       return False
     return True
+
+  def makeSemesterNumberColumn(self, firstYear = 2010):
+    """Used internally. Makes a new column called 'semNumber', starting at 0 for Spring 2010 and adding 1 for each normal semester. 
+    Summer semesters are considered in between normal semesters, and have an increment of 0.5 semesters.
+    
+    Args: 
+        firstYear (:obj:`int`, optional), the earliest year in the dataset. Defaults to 2010
+    
+    """
+    semNumberList = []
+    #Cycle through each student
+    for term in self.df.REG_banTerm:
+      #Separate the string term at the last 4 characters to get a season and a year
+      #This code will have to be updated in 7,979 years to account for 5 digit years
+      season = term[:-5]
+      year = term[-4:]
+      #Convert the year to int
+      year = int(year)
+      seasonNum = 0
+      if (season == "Summer"):
+        seasonNum = 0.5
+      elif (season == "Fall"):
+        seasonNum = 1
+      #Calculate the semesterNum
+      #Designed so that there is 1 semester between two normal semesters and 0.5 semesters between a summer semester and normal semester
+      semesterNum = (year - firstYear) * 2 + seasonNum
+      #Append to the list
+      semNumberList.append(semesterNum)
+    #Make this list the column semNumber in the dataFrame
+    self.df["semNumber"] = semNumberList
+    
 
