@@ -745,6 +745,7 @@ class gradeData:
     # function goes through every possible pair of classes
     # minStudents is set to 20 to make sure at least 20 students from the initial class with a professor went on to take the second class. This ensures that results are not skewed by too few students
     # directionality is set to .8 to make sure that at least 80 percent of students that took both classes took them in the same order
+   
     if not self.__requiredColumnPresent(self.FACULTY_ID_COLUMN): # checks to see if faculty ids are present 
       return
     if self.NORMALIZATION_COLUMN not in self.df.columns:
@@ -754,7 +755,8 @@ class gradeData:
     self.dropNullAndConvertToNumeric(self.FINAL_GRADE_COLUMN) # makes sure final grade is numeric
     self.dropNullAndConvertToNumeric(self.NORMALIZATION_COLUMN) # makes sure normalization is numeric
     print('here')
-    if directionality > 1.0 or directionality < 0.5: # logically, directionality must be between 0.5 and 1
+    
+    if directionality > 1.0 or directionality < 0.5: 
       print('Error: directionality out of bounds (must be between 0.5 to 1, not '+ str(directionality) +').')
     if otherRank is not None:
       if not self.__requiredColumnPresent(otherRank):
@@ -762,6 +764,7 @@ class gradeData:
       self.dropNullAndConvertToNumeric(otherRank)
     print('here')
     rowList = []
+    
     # processPair function - takes two classes and finds all relevant faculty scores. Scope is inside instructorRanksAllClasses
     def processPair(classOne, classTwo, df):
       firstClass = df[self.CLASS_CODE_COLUMN] == classOne # looks at the whole dataframe and makes a series of true/false values, compares each value to the name of the first class (true if it is the same)
@@ -769,6 +772,7 @@ class gradeData:
       secondClassEntries = df.loc[~firstClass] # makes separate dataframe for second class
       instructorDict = firstClassEntries[self.FACULTY_ID_COLUMN].value_counts().to_dict() # looks at all faculty that taught the first class, gets a number of students for each instructor
       instructors = {key:val for key, val in instructorDict.items() if val >= minStudents} # defines a map of values, removes any instructor that taught less than the minimum amount of students
+      
       if not instructors: # if the threshold is not met, function ends
         return
       for instructor, count in instructors.items(): # loops through instructors that met the requirement
@@ -777,9 +781,11 @@ class gradeData:
         secondClassWithPastInstructor = secondClassEntries[self.STUDENT_ID_COLUMN].isin(studentsWithInstructor) # takes all students that took the instructor for the first class and filters through the dataframe of the second class down to the same students
         newCount = sum(secondClassWithPastInstructor) # finds how many students took both classes
         nonStudents = len(secondClassWithPastInstructor.index) - newCount # finds how many students took the second class but did not have the first instructor
-        if nonStudents > 0: # ensures that there are some students that did not take the instructor
-          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std() # calculates standard deviation of grades in the second class
-          if stdDev > 0: # ensures that every student did not recieve the same grade
+       
+      if nonStudents > 0: # ensures that there are some students that did not take the instructor
+          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
+         
+        if stdDev > 0: # ensures that every student did not recieve the same grade
             entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who took the instructor  
             entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who did not take the instructor 
             AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean() # gets mean grade from group of people in the second class who took the instructor
@@ -790,6 +796,7 @@ class gradeData:
             rowDict['futureCourse'] = classTwo
             rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean() # subtracts the mean of students who did not take the instructor from the mean of students who took the instructor
             rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev # subtracts the average of students who did not take the instructor from the average of students who took the instructor and divides by standard deviation (because it is not centered at 0)
+            
             if otherRank is not None: # otherRank allows one to include some other value in a different column
               rowDict[otherRank] = entriesWithPastInstructor[otherRank].mean() - entriesWithoutPastInstructor[otherRank].mean()
             rowDict['#students'] = newCount
@@ -799,6 +806,7 @@ class gradeData:
     classes = self.df[self.CLASS_CODE_COLUMN].unique().tolist() # gets all classes
     numClasses = len(classes)
     grouped = self.df.groupby(self.CLASS_CODE_COLUMN) # makes a specific dataframe for each class 
+    
     for name, group in grouped:
       group.sort_values(self.TERM_COLUMN, inplace = True) # sorts classes by the term they occurred in
       group.drop_duplicates(self.STUDENT_ID_COLUMN, keep='last', inplace=True) # gets rid of any duplicates of a student taking a class more than once, keeps the last time
@@ -818,11 +826,12 @@ class gradeData:
           firstEntries = relevantEntries[[self.STUDENT_ID_COLUMN, self.CLASS_CODE_COLUMN]].drop_duplicates(self.STUDENT_ID_COLUMN) # drops duplicates (might be redundant?)
           classOneFirstCount = sum(firstEntries[self.CLASS_CODE_COLUMN] == classOne) # finds how many students took class one first
           directionOne = classOneFirstCount / (len(firstEntries.index)) # compares how many students took class one first to the total, in order to find directionality
-          if directionOne >= directionality: # if it is over the threshold, it processes normally
+          if directionOne >= directionality: 
             processPair(classOne, classTwo, relevantEntries)
           if (1.0 - directionOne) >= directionality: # if it is not over the threshold, the classes orders get reversed
             processPair(classTwo, classOne, relevantEntries)
       # print('outerEnd: ' + str(time.time() - start_time))      
+    
     if otherRank is None:
       completeDf = pd.DataFrame(rowList, columns=['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit','#students', '#nonStudents'])
     else:
@@ -837,9 +846,9 @@ class gradeData:
     completeDf['normBenefit' + pvalSuffix] = pvalOfSeries(completeDf['normBenefit'])
     completeDf['gradeBenefit' + pvalSuffix] = pvalOfSeries(completeDf['gradeBenefit'])
     completeDf['grade*Norm*Sign(norm)' + pvalSuffix] = pvalOfSeries(completeDf['grade*Norm*Sign(norm)'])
+  
     if otherRank is not None:
       completeDf[otherRank + pvalSuffix] = pvalOfSeries(completeDf[otherRank])
-
     if not fileName.endswith('.csv'):
       fileName = "".join((fileName, '.csv'))
     completeDf.to_csv(fileName, index=False)
