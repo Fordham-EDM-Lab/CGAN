@@ -21,6 +21,7 @@ from holoviews import opts, dim
 from bokeh.plotting import show, save, output_file
 from bokeh.io import export_png
 from bokeh.models import Title
+from edmlib.edmlib import edmApplication, outDir
 
 class gradeData:
   """Class for manipulating grade datasets.
@@ -1589,7 +1590,7 @@ class gradeData:
   def __requiredColumnPresent(self, column):
     if column not in self.df.columns:
     # JH: Shouldn't the caller decide what to print? 
-      if edmlib.edmApplication:
+      if edmApplication:
         print("Error: required column '" + column + "' not present in dataset. Fix by right clicking / setting columns.")
       else:
         print("Error: required column '" + column + "' not present in dataset. Fix or rename with the 'defineWorkingColumns' function.")

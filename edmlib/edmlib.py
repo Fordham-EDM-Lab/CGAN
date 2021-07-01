@@ -21,7 +21,7 @@ from holoviews import opts, dim
 from bokeh.plotting import show, save, output_file
 from bokeh.io import export_png
 from bokeh.models import Title
-from edmlib import gradeData, classCorrelationData
+#from edmlib import gradeData, classCorrelationData
 numLibInstalled = True
 try:
   import numexpr
