@@ -515,7 +515,7 @@ class gradeData:
       if not self.__requiredColumnPresent(self.CLASS_NUMBER_COLUMN):
         print("Note: Optionally, the 'classNumber' column does not need to be defined if the class specific (e.g. 'Psych1000' or 'IntroToPsych') column 'classCode' is defined. This can be done with the 'defineWorkingColumns' function.")
         return
-      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].apply(str) + self.df[self.CLASS_NUMBER_COLUMN]
+      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].apply(str) + self.df[self.CLASS_NUMBER_COLUMN].apply(str)
       self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_CODE_COLUMN].str.replace(" ","")
     if self.CLASS_ID_AND_TERM_COLUMN not in self.df.columns:
       if not self.__requiredColumnPresent(self.CLASS_ID_COLUMN):
@@ -847,15 +847,15 @@ class gradeData:
       instructorAveraging(completeDf, subjectFileName)
     return completeDf # outputs completed dataframe
 
-  #Note: Has an error when sequenceDetails = True
-  #Every other parameter seems to work fine
-  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False):
+  #Note: Has an error when sequenceDetails = True if numexpr is not installed
+  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False, semsBetweenClassesLimit = -1):
     """Returns a pandas dataframe with correlations between all available classes based on grades, after normalization.
 
     Args:
         nSharedStudents (:obj:`int`, optional): Minimum number of shared students a pair of classes must have to compute a correlation. Defaults to 20.
         directed (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         classDetails (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
+        semsBetweenClassesLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
 
     Returns:
         :obj:`pandas.dataframe`: Pandas dataframe with at least columns "course1", "course2", "corr", "P-value", and "#students", which store class names, their correlation coefficient (0 least to 1 most), the P-value of this calculation, and the number of students shared between these two classes.
@@ -908,32 +908,30 @@ class gradeData:
       else:
         return [math.nan, math.nan, math.nan]
     def corrAlgDirected(a, b): 
-      #Set semsBetweenClassesLimit, which limits the max number of semesters between classes
-      #To Do: make this an argument of the function as a whole
-      #If this value is negative then no limit is applied
-      semsBetweenClassesLimit = -1
-      #Set norms and norms2 in the same way as corAlg
+      #norms is a DataFrame that includes data from a of students in b
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
+      #Remove all data with missing grades
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
       if (semsBetweenClassesLimit >= 0):
-        #Make a semesterDifference column
-        semesterDifference = []
-        #Cycle through each student to get the number of semester between each class
-        for SID in norms.SID:
-          termA = norms.loc[norms.SID == SID].semNumber.iloc[0]
-          termB = b.loc[b.SID == SID].semNumber.iloc[0]
-          semesterDifference.append(abs(termA - termB))
-        #Add this list as a column in norms and remove students who took too many semesters between classes
-        norms["semDifference"] = semesterDifference
+        #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
+        combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
+        combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
+        norms["semDifference"] = combinedClasses["semDifference"].values
+        #Filter data to only include students with a small enough gap between classes
         norms = norms.loc[norms.semDifference <= semsBetweenClassesLimit]
+      #Return no data if there aren't enough students
       if len(norms) < nSharedStudents and not sequenceDetails:
         return ([math.nan] * 36)
       elif len(norms) < nSharedStudents:
         return ([math.nan] * 52)
+      #Set index to student ID and sort
       norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms.sort_index(inplace=True)
+      #aNorms is a series of normalized grades in class a of students who took class a before class b
       aNorms = norms[self.NORMALIZATION_COLUMN]
+      #Set norms2 to be a dataframe of the data from class b of students who took class a before class b
       norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(norms.index)]
+      #Set index to student ID and sort
       norms2.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms2.sort_index(inplace=True)
       #Define more, less, concurrentA, and concurrentB to create columns in the DataFrame
@@ -950,8 +948,8 @@ class gradeData:
         concurrentB = norms2.loc[same]
       #The same calculation but without numexpr (presumably is slower)
       else:
-        less = norms[self.TERM_COLUMN].values < norms2[self.TERM_COLUMN].values
-        more = norms[self.TERM_COLUMN].values > norms2[self.TERM_COLUMN].values
+        less = norms["semNumber"].values < norms2["semNumber"].values
+        more = norms["semNumber"].values > norms2["semNumber"].values
         concurrentA = norms.loc[(~less) & (~more)]
         concurrentB = norms2.loc[(~less) & (~more)]
       #Here all of the columns are created as lists
@@ -1221,7 +1219,7 @@ class gradeData:
     print(str(len(normoutput.index)) + ' correlations calculated. ' + str(time.time() - start_time) + ' seconds.')
     return normoutput
 
-  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False):
+  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False, semesterLimit = -1):
     """Exports CSV file with all correlations between classes with the given minimum number of shared students. File format has columns 'course1', 'course2', 'corr', 'P-value', '#students'.
 
     Args:
@@ -1229,11 +1227,13 @@ class gradeData:
         nStudents (:obj:`int`, optional): Minimum number of shared students a pair of classes must have to compute a correlation. Defaults to 20.
         directedCorr (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         detailed (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
+        semesterLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
 
     """
     if not filename.endswith('.csv'):
       filename = "".join((filename, '.csv'))
-    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced).to_csv(filename, index=False)
+    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced, semsBetweenClassesLimit = semesterLimit).to_csv(filename, index=False)
+
 
   def exportCorrelationsWithAvailableClasses(self, filename = 'CorrelationOutput_EDMLIB.csv'):
     result = self.getCorrelationsWithMinNSharedStudents()
