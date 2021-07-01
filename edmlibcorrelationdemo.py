@@ -3,7 +3,7 @@ from edmlib import gradeData
 from scipy.stats.stats import pearsonr
 
 start_time = time.time()
-df = gradeData()
+df = gradeData('/u/erdos/edmProject/final-datamart-6-7-19.csv')
 majorsToFilterTo = ['Computer and Info Science', 
                     'Psychology']
 coreClasses = [ 'Philosophy1000',
@@ -29,8 +29,10 @@ otherClasses = ['Physics1501',
                     'Mathematics1100',
                     'Theatre1100',
                     'Music1100']
-df.reduceToMultipleMajorsOrClasses(majorsToFilterTo, coreClasses + preMedClasses + otherClasses)
+df.filterToMultipleMajorsOrClasses(majorsToFilterTo, coreClasses + preMedClasses + otherClasses)
 df.filterByGpaDeviationMoreThan(0.2)
+df.defineWorkingColumns('OTCM_FinalGradeN', 'SID', 'REG_term',
+        'REG_CourseCrn', 'REG_Programcode', 'REG_Numbercode', 'GRA_MajorAtGraduation', 'REG_REG_credHr')
 print("--- %s seconds ---" % (time.time() - start_time))
 start_time = time.time()
 df.exportCorrelationsWithAvailableClasses()
