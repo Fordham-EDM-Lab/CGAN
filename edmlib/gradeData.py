@@ -783,7 +783,7 @@ class gradeData:
         nonStudents = len(secondClassWithPastInstructor.index) - newCount # finds how many students took the second class but did not have the first instructor
        
       if nonStudents > 0: # ensures that there are some students that did not take the instructor
-          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
+        stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
          
         if stdDev > 0: # ensures that every student did not recieve the same grade
             entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who took the instructor  
