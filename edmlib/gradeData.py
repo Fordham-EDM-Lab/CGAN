@@ -515,7 +515,7 @@ class gradeData:
       if not self.__requiredColumnPresent(self.CLASS_NUMBER_COLUMN):
         print("Note: Optionally, the 'classNumber' column does not need to be defined if the class specific (e.g. 'Psych1000' or 'IntroToPsych') column 'classCode' is defined. This can be done with the 'defineWorkingColumns' function.")
         return
-      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].apply(str) + self.df[self.CLASS_NUMBER_COLUMN]
+      self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN].apply(str) + self.df[self.CLASS_NUMBER_COLUMN].apply(str)
       self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_CODE_COLUMN].str.replace(" ","")
     if self.CLASS_ID_AND_TERM_COLUMN not in self.df.columns:
       if not self.__requiredColumnPresent(self.CLASS_ID_COLUMN):
@@ -745,6 +745,7 @@ class gradeData:
     # function goes through every possible pair of classes
     # minStudents is set to 20 to make sure at least 20 students from the initial class with a professor went on to take the second class. This ensures that results are not skewed by too few students
     # directionality is set to .8 to make sure that at least 80 percent of students that took both classes took them in the same order
+   
     if not self.__requiredColumnPresent(self.FACULTY_ID_COLUMN): # checks to see if faculty ids are present 
       return
     if self.NORMALIZATION_COLUMN not in self.df.columns:
@@ -754,7 +755,8 @@ class gradeData:
     self.dropNullAndConvertToNumeric(self.FINAL_GRADE_COLUMN) # makes sure final grade is numeric
     self.dropNullAndConvertToNumeric(self.NORMALIZATION_COLUMN) # makes sure normalization is numeric
     print('here')
-    if directionality > 1.0 or directionality < 0.5: # logically, directionality must be between 0.5 and 1
+    
+    if directionality > 1.0 or directionality < 0.5: 
       print('Error: directionality out of bounds (must be between 0.5 to 1, not '+ str(directionality) +').')
     if otherRank is not None:
       if not self.__requiredColumnPresent(otherRank):
@@ -762,6 +764,7 @@ class gradeData:
       self.dropNullAndConvertToNumeric(otherRank)
     print('here')
     rowList = []
+    
     # processPair function - takes two classes and finds all relevant faculty scores. Scope is inside instructorRanksAllClasses
     def processPair(classOne, classTwo, df):
       firstClass = df[self.CLASS_CODE_COLUMN] == classOne # looks at the whole dataframe and makes a series of true/false values, compares each value to the name of the first class (true if it is the same)
@@ -769,6 +772,7 @@ class gradeData:
       secondClassEntries = df.loc[~firstClass] # makes separate dataframe for second class
       instructorDict = firstClassEntries[self.FACULTY_ID_COLUMN].value_counts().to_dict() # looks at all faculty that taught the first class, gets a number of students for each instructor
       instructors = {key:val for key, val in instructorDict.items() if val >= minStudents} # defines a map of values, removes any instructor that taught less than the minimum amount of students
+      
       if not instructors: # if the threshold is not met, function ends
         return
       for instructor, count in instructors.items(): # loops through instructors that met the requirement
@@ -777,9 +781,11 @@ class gradeData:
         secondClassWithPastInstructor = secondClassEntries[self.STUDENT_ID_COLUMN].isin(studentsWithInstructor) # takes all students that took the instructor for the first class and filters through the dataframe of the second class down to the same students
         newCount = sum(secondClassWithPastInstructor) # finds how many students took both classes
         nonStudents = len(secondClassWithPastInstructor.index) - newCount # finds how many students took the second class but did not have the first instructor
-        if nonStudents > 0: # ensures that there are some students that did not take the instructor
-          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std() # calculates standard deviation of grades in the second class
-          if stdDev > 0: # ensures that every student did not recieve the same grade
+       
+      if nonStudents > 0: # ensures that there are some students that did not take the instructor
+          stdDev = secondClassEntries[self.FINAL_GRADE_COLUMN].std()
+         
+        if stdDev > 0: # ensures that every student did not recieve the same grade
             entriesWithPastInstructor = secondClassEntries.loc[secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who took the instructor  
             entriesWithoutPastInstructor = secondClassEntries.loc[~secondClassWithPastInstructor] # makes a dataframe from the second class dataframe of people who did not take the instructor 
             AverageGradeWithInstructor = entriesWithPastInstructor[self.FINAL_GRADE_COLUMN].mean() # gets mean grade from group of people in the second class who took the instructor
@@ -790,6 +796,7 @@ class gradeData:
             rowDict['futureCourse'] = classTwo
             rowDict['normBenefit'] = entriesWithPastInstructor[self.NORMALIZATION_COLUMN].mean() - entriesWithoutPastInstructor[self.NORMALIZATION_COLUMN].mean() # subtracts the mean of students who did not take the instructor from the mean of students who took the instructor
             rowDict['gradeBenefit'] = (AverageGradeWithInstructor - AverageGradeWithoutInstructor) / stdDev # subtracts the average of students who did not take the instructor from the average of students who took the instructor and divides by standard deviation (because it is not centered at 0)
+            
             if otherRank is not None: # otherRank allows one to include some other value in a different column
               rowDict[otherRank] = entriesWithPastInstructor[otherRank].mean() - entriesWithoutPastInstructor[otherRank].mean()
             rowDict['#students'] = newCount
@@ -799,6 +806,7 @@ class gradeData:
     classes = self.df[self.CLASS_CODE_COLUMN].unique().tolist() # gets all classes
     numClasses = len(classes)
     grouped = self.df.groupby(self.CLASS_CODE_COLUMN) # makes a specific dataframe for each class 
+    
     for name, group in grouped:
       group.sort_values(self.TERM_COLUMN, inplace = True) # sorts classes by the term they occurred in
       group.drop_duplicates(self.STUDENT_ID_COLUMN, keep='last', inplace=True) # gets rid of any duplicates of a student taking a class more than once, keeps the last time
@@ -818,11 +826,12 @@ class gradeData:
           firstEntries = relevantEntries[[self.STUDENT_ID_COLUMN, self.CLASS_CODE_COLUMN]].drop_duplicates(self.STUDENT_ID_COLUMN) # drops duplicates (might be redundant?)
           classOneFirstCount = sum(firstEntries[self.CLASS_CODE_COLUMN] == classOne) # finds how many students took class one first
           directionOne = classOneFirstCount / (len(firstEntries.index)) # compares how many students took class one first to the total, in order to find directionality
-          if directionOne >= directionality: # if it is over the threshold, it processes normally
+          if directionOne >= directionality: 
             processPair(classOne, classTwo, relevantEntries)
           if (1.0 - directionOne) >= directionality: # if it is not over the threshold, the classes orders get reversed
             processPair(classTwo, classOne, relevantEntries)
       # print('outerEnd: ' + str(time.time() - start_time))      
+    
     if otherRank is None:
       completeDf = pd.DataFrame(rowList, columns=['Instructor','courseTaught','futureCourse','normBenefit','gradeBenefit','#students', '#nonStudents'])
     else:
@@ -837,9 +846,9 @@ class gradeData:
     completeDf['normBenefit' + pvalSuffix] = pvalOfSeries(completeDf['normBenefit'])
     completeDf['gradeBenefit' + pvalSuffix] = pvalOfSeries(completeDf['gradeBenefit'])
     completeDf['grade*Norm*Sign(norm)' + pvalSuffix] = pvalOfSeries(completeDf['grade*Norm*Sign(norm)'])
+  
     if otherRank is not None:
       completeDf[otherRank + pvalSuffix] = pvalOfSeries(completeDf[otherRank])
-
     if not fileName.endswith('.csv'):
       fileName = "".join((fileName, '.csv'))
     completeDf.to_csv(fileName, index=False)
@@ -847,15 +856,15 @@ class gradeData:
       instructorAveraging(completeDf, subjectFileName)
     return completeDf # outputs completed dataframe
 
-  #Note: Has an error when sequenceDetails = True
-  #Every other parameter seems to work fine
-  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False):
+  #Note: Has an error when sequenceDetails = True if numexpr is not installed
+  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False, semsBetweenClassesLimit = -1):
     """Returns a pandas dataframe with correlations between all available classes based on grades, after normalization.
 
     Args:
         nSharedStudents (:obj:`int`, optional): Minimum number of shared students a pair of classes must have to compute a correlation. Defaults to 20.
         directed (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         classDetails (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
+        semsBetweenClassesLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
 
     Returns:
         :obj:`pandas.dataframe`: Pandas dataframe with at least columns "course1", "course2", "corr", "P-value", and "#students", which store class names, their correlation coefficient (0 least to 1 most), the P-value of this calculation, and the number of students shared between these two classes.
@@ -908,32 +917,30 @@ class gradeData:
       else:
         return [math.nan, math.nan, math.nan]
     def corrAlgDirected(a, b): 
-      #Set semsBetweenClassesLimit, which limits the max number of semesters between classes
-      #To Do: make this an argument of the function as a whole
-      #If this value is negative then no limit is applied
-      semsBetweenClassesLimit = -1
-      #Set norms and norms2 in the same way as corAlg
+      #norms is a DataFrame that includes data from a of students in b
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
+      #Remove all data with missing grades
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
       if (semsBetweenClassesLimit >= 0):
-        #Make a semesterDifference column
-        semesterDifference = []
-        #Cycle through each student to get the number of semester between each class
-        for SID in norms.SID:
-          termA = norms.loc[norms.SID == SID].semNumber.iloc[0]
-          termB = b.loc[b.SID == SID].semNumber.iloc[0]
-          semesterDifference.append(abs(termA - termB))
-        #Add this list as a column in norms and remove students who took too many semesters between classes
-        norms["semDifference"] = semesterDifference
+        #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
+        combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
+        combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
+        norms["semDifference"] = combinedClasses["semDifference"].values
+        #Filter data to only include students with a small enough gap between classes
         norms = norms.loc[norms.semDifference <= semsBetweenClassesLimit]
+      #Return no data if there aren't enough students
       if len(norms) < nSharedStudents and not sequenceDetails:
         return ([math.nan] * 36)
       elif len(norms) < nSharedStudents:
         return ([math.nan] * 52)
+      #Set index to student ID and sort
       norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms.sort_index(inplace=True)
+      #aNorms is a series of normalized grades in class a of students who took class a before class b
       aNorms = norms[self.NORMALIZATION_COLUMN]
+      #Set norms2 to be a dataframe of the data from class b of students who took class a before class b
       norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(norms.index)]
+      #Set index to student ID and sort
       norms2.set_index(self.STUDENT_ID_COLUMN, inplace=True)
       norms2.sort_index(inplace=True)
       #Define more, less, concurrentA, and concurrentB to create columns in the DataFrame
@@ -950,8 +957,8 @@ class gradeData:
         concurrentB = norms2.loc[same]
       #The same calculation but without numexpr (presumably is slower)
       else:
-        less = norms[self.TERM_COLUMN].values < norms2[self.TERM_COLUMN].values
-        more = norms[self.TERM_COLUMN].values > norms2[self.TERM_COLUMN].values
+        less = norms["semNumber"].values < norms2["semNumber"].values
+        more = norms["semNumber"].values > norms2["semNumber"].values
         concurrentA = norms.loc[(~less) & (~more)]
         concurrentB = norms2.loc[(~less) & (~more)]
       #Here all of the columns are created as lists
@@ -1221,7 +1228,7 @@ class gradeData:
     print(str(len(normoutput.index)) + ' correlations calculated. ' + str(time.time() - start_time) + ' seconds.')
     return normoutput
 
-  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False):
+  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False, semesterLimit = -1):
     """Exports CSV file with all correlations between classes with the given minimum number of shared students. File format has columns 'course1', 'course2', 'corr', 'P-value', '#students'.
 
     Args:
@@ -1229,11 +1236,13 @@ class gradeData:
         nStudents (:obj:`int`, optional): Minimum number of shared students a pair of classes must have to compute a correlation. Defaults to 20.
         directedCorr (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         detailed (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
+        semesterLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
 
     """
     if not filename.endswith('.csv'):
       filename = "".join((filename, '.csv'))
-    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced).to_csv(filename, index=False)
+    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced, semsBetweenClassesLimit = semesterLimit).to_csv(filename, index=False)
+
 
   def exportCorrelationsWithAvailableClasses(self, filename = 'CorrelationOutput_EDMLIB.csv'):
     result = self.getCorrelationsWithMinNSharedStudents()
