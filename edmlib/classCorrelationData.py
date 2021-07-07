@@ -30,7 +30,7 @@ class classCorrelationData:
   df = None
   sourceFile = ""
 
-  def __init__(self,sourceFileOrDataFrame,copyDataFrame=True):
+  def __init__(self, sourceFileOrDataFrame, copyDataFrame=True):
     """Class constructor, creates an instance of the class given a .CSV file or pandas dataframe. Typically should only be used manually with correlation files outputted by the gradeData class.
 
     Used with classCorrelationData('fileName.csv') or classCorrelationData(dataFrameVariable).
@@ -51,12 +51,15 @@ class classCorrelationData:
       else:
         self.df = sourceFileOrDataFrame.copy()
   
+# M: returns the unique values in the column 'course1'
   def getClassesUsed(self):
     return self.df['course1'].unique()
 
+# M: returns the unique values in column 'course1' (Does not include NaN)
   def getNumberOfClassesUsed(self):
     return self.df['course1'].nunique()
 
+# M: returns the unique values in the column 'column'
   def printUniqueValuesInColumn(self, column):
     print(self.df[column].unique())
 
@@ -66,6 +69,7 @@ class classCorrelationData:
     """
     self.printUniqueValuesInColumn('course1')
 
+# M: gets the number of rows
   def getEntryCount(self):
     return len(self.df.index)
 
@@ -106,7 +110,17 @@ class classCorrelationData:
     """
     if not self.__requiredColumnPresent(col):
         return
+    
     self.printEntryCount()
+
+# M:  if all the elements in values array are strings:
+#       makes 'possibilities', lowercased elements in values array
+#       separated by '|'. Then, sets df equal to the specified 
+#       column(as str), with values conforming with possibilities(separated by '|')
+#       
+#       else, make the df equal to the specified column, checking 
+#       the values without changing case (idea: can make this not case sensitive maybe)
+
     if all([isinstance(x,str) for x in values]):
       lowered = [x.lower() for x in values]
       possibilities = "|".join(lowered)
@@ -114,6 +128,7 @@ class classCorrelationData:
       self.df = self.df.loc[loweredCol.str.contains(possibilities)]
     else:
       self.df = self.df.loc[np.in1d(self.df[col],values)]
+# M: changes original df to have integer indices starting from 0
     self.df.reset_index(inplace=True, drop=True)
     self.printEntryCount()
 
@@ -174,45 +189,78 @@ class classCorrelationData:
         outputImage (:obj:`bool`, optional): Whether or not to export an image of the graph. Defaults to :obj:`True`. 
     
     """
+    # M: initialized holoview of size outputSize
     hv.output(size=outputSize)
+    
+    # M: creates a copy of df and sets course1 and course2 to not have elements with numbers in the beginning
     majorFiltered = self.df.copy()
     majorFiltered['course1'] = majorFiltered['course1'].apply(lambda course: re.findall('\A\D+', course)[0])
     majorFiltered['course2'] = majorFiltered['course2'].apply(lambda course: re.findall('\A\D+', course)[0])
+    
+    # sets majors to the unique remaining tuples of course1
     majors = majorFiltered['course1'].unique().tolist()
     majors.sort()
+
+
     majorCorrelations = []
     usedMajors = []
+
+    # M: Makes the data in corr, P-value, and #students attributes numeric
     majorFiltered['corr'] = pd.to_numeric(majorFiltered['corr'])
     majorFiltered['P-value'] = pd.to_numeric(majorFiltered['P-value'])
     majorFiltered['#students'] = pd.to_numeric(majorFiltered['#students'])
+
     count = 0
+    # M: loops through unique majors in course 1(those w/o numerical beginning)
     for major in majors:
+      # Adds 1 to count then prints the number of elements in majors
       count += 1
       print(str(count) + ' / ' + str(len(majors)) + ' majors')
+      
+      # M: sets filteredToMajor to the majorFiltered where course 1 column is equal to 'major' in the majors list
       filteredToMajor = majorFiltered.loc[majorFiltered['course1'] == major]
+      # M: sets connectedMajors to the unique values in course2 column
       connectedMajors = filteredToMajor['course2'].unique().tolist()
+
+      # M: loops through the unique majors in course 2 (those w/o numerical beginning)
       for targetMajor in connectedMajors:
+        # M: Sets filteredToMajorPair to the tuple(s) where course 1 is 'major' and course 2 is 'targetMajor'
         filteredToMajorPair = filteredToMajor.loc[filteredToMajor['course2'] == targetMajor]
+        # M: Finds means for corr, PVal, and Students
         avgCorr = int(filteredToMajorPair['corr'].mean() * 100)
         avgPVal = filteredToMajorPair['P-value'].mean()
         avgStudents = filteredToMajorPair['#students'].mean()
+        
+        # M: ensures no corr following the constraints are counted twice and adds it to the list of correlations 
         if avgCorr > (coefficient * 100) and major != targetMajor and avgPVal < pval:
           if (targetMajor, major) not in usedMajors:
             usedMajors.append((major, targetMajor))
             majorCorrelations.append((major, targetMajor, avgCorr, avgPVal, avgStudents))
 
+    # M: Tells us how many correlations found
     if len(majorCorrelations) == 0:
       print('Error: no valid correlations found.')
       return
     print(str(len(majorCorrelations)) + ' valid major correlations found.')
+    
+    # M: Sets output to majorCorrelaions with the specified column names
     output = pd.DataFrame(majorCorrelations, columns=('source', 'target', 'corr', 'P-value', '#students'))
+    # M: Sets newMajors to have the unique sources and targets (by putting them in a set) 
     newMajors = set(output['source'])
     newMajors.update(output['target'])
+    # M: Sets sortedMajors to one list of sources and targets, all sorted
     sortedMajors = sorted(list(newMajors))
+
+    # M: sets 'nodes' to be sortedMajors w/ column name 'name'
     nodes = pd.DataFrame(sortedMajors, columns = ['name'])
+    
+    ''' NEED TO WORK ON THIS MORE
+    '''
+    # M: output source and target are changed with function that does nodes.index[name == major] first element of
     output['source'] = output['source'].apply(lambda major: nodes.index[nodes['name'] == major][0])
     output['target'] = output['target'].apply(lambda major: nodes.index[nodes['name'] == major][0])
 
+    # M: constructs the chord graph
     output.to_csv(outputName + '.csv', index=False)
     hvNodes = hv.Dataset(nodes, 'index')
     chord = hv.Chord((output, hvNodes)).select(value=(5, None))
@@ -220,16 +268,20 @@ class classCorrelationData:
         opts.Chord(cmap='Category20', edge_cmap='Category20', edge_color=dim('source').str(), 
                   labels='name', node_color=dim('index').str()))
     graph = hv.render(chord)
-# JH: What a fucking mess! Where does this go?
+# JH: So messy! Where does this go?
     output_file(outDir +outputName + '.html', mode='inline')
+    # M: Saves and shows graph if showGraph true
     save(graph)
     if showGraph:
       show(graph)
     chord.opts(toolbar=None)
+    # M: changes size to imageSize then saves it to outDir +outputName + '.png'
     if outputImage:
       hv.output(size=imageSize)
       export_png(hv.render(chord), filename=outDir +outputName + '.png')
+    # M: changes size to outputSize
     hv.output(size=outputSize)
+
 
   def getNxGraph(self, minCorr = None):
     """Returns a NetworkX graph of the correlational data, where the nodes are classes and the weights are the correlations.
@@ -238,9 +290,11 @@ class classCorrelationData:
         minCorr (:obj:`float`, optional): Minimum correlation between classes for an edge to be included on the graph. Should be in the 0.0-1.0 range. Defaults to :obj:`None` (or do not filter).
 
     """
+# M:  if no filter, return graph containing edgelist correlations btwn course1 and course2
     if minCorr is None:
       print('minCorr none')
       return nx.from_pandas_edgelist(self.df, 'course1', 'course2', 'corr')
+# M: filters out those with correlation < minCorr, then return graph containing edgelist correlations btwn course1 and course2
     self.df['corr'] = pd.to_numeric(self.df['corr'])
     filtered = self.df.loc[self.df['corr'] >= minCorr]
     return nx.from_pandas_edgelist(filtered, 'course1', 'course2', 'corr')
@@ -253,6 +307,8 @@ class classCorrelationData:
         minSize (:obj:`int`, optional): Minimum number of nodes to look for in a clique. Default is 2.
 
     """
+# M:  First, gets graph with minCorr, then finds a list of cliques,
+#     and finally, returns a sorted list of cliques of size >= minSize
     graph = self.getNxGraph(minCorr)
     cliques = list(nx.find_cliques(graph))
     return sorted(filter(lambda clique: len(clique) >= minSize, cliques))
@@ -269,8 +325,12 @@ class classCorrelationData:
         logScale (:obj:`bool`, optional): Whether or not to output graph in Log 10 scale on the y-axis. Defaults to :obj:`False`.
 
     """
+# M:  Gets a list of cliques, then the largest clique length
     cliques = self.getCliques(minCorr = minCorr)
     largestClique = len(max(cliques, key = len))
+
+# M:  makes a 'weight' array: contains counts of cliques of every size from 2 to 'largestClique'
+#     (also includes count of smaller sub-cliques of larger cliques if 'countDuplicates' is true)
     weight = []
     for k in range(2, largestClique+1):
       count = 0
@@ -281,6 +341,8 @@ class classCorrelationData:
             count += len(list(itertools.combinations(clique, k)))
       weight.append(count)
       print('Size ' + str(k) + ' cliques: ' + str(count))
+
+
     if makeHistogram:
       # cliqueCount = [len(clique) for clique in cliques]
       # frequencies, edges = np.histogram(cliqueCount, largestClique - 1, (2, largestClique))
@@ -288,9 +350,12 @@ class classCorrelationData:
       frequencies, edges = np.histogram(a=cliqueCount, bins=largestClique - 1, range=(2, largestClique), weights=weight)
       #print('Values: %s, Edges: %s' % (frequencies.shape[0], edges.shape[0]))
       ylbl = 'Number of Cliques'
+      # M: sets a log scale if specified
       if logScale:
         frequencies = [math.log10(freq) for freq in frequencies]
         ylbl += ' (log 10 scale)'
+      
+      # M: creates histogram using (edges, frequencies) and customizes it
       histo = hv.Histogram((edges, frequencies))
       histo.opts(opts.Histogram(xlabel='Number of Classes in Clique', ylabel=ylbl, title=graphTitle))
       hv.output(size=125)
@@ -298,6 +363,7 @@ class classCorrelationData:
       if minCorr:
         subtitle = 'corr >= ' + str(minCorr) + ', ' + subtitle
 
+      # M: creates the histogram, saves it, then shows it
       graph = hv.render(histo)
       graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
       output_file(outDir +fileName + '.html', mode='inline')
@@ -305,6 +371,7 @@ class classCorrelationData:
       show(graph)
 # JH: Use exportPng=True to get rid of the global variable.
 #      if not edmApplication:
+      # M: png version
       if exportPNG:
         histo.opts(toolbar=None)
         graph = hv.render(histo)
@@ -312,11 +379,15 @@ class classCorrelationData:
         export_png(graph, filename=outDir +fileName + '.png')
 
   def makeMissingValuesNanInColumn(self, column):
+    """Replaces the ' ' values in 'column' w nan
+    """
     if not self.__requiredColumnPresent(column):
       return
     self.df[column].replace(' ', np.nan, inplace=True)
 
   def removeNanInColumn(self, column):
+    """drops na in 'column' then resets the indices(changes original df)
+    """
     if not self.__requiredColumnPresent(column):
       return
     self.df.dropna(subset=[column], inplace=True)
@@ -335,11 +406,18 @@ class classCorrelationData:
     self.removeNanInColumn(column)      
 
   def convertColumnToString(self, column):
+    """Converts 'column' to string type
+    """
     if not self.__requiredColumnPresent(column):
       return
     self.df.astype({column:str}, copy=False)
   
   def __requiredColumnPresent(self, column):
+    """Checks if 'column' present
+        if not, prints error message depending on if 
+        
+        QUESTION: WHAT IS edmlib.edmApplication?
+    """
     if column not in self.df.columns:
   # JH: Should this error be here or can we use two separate decorations?
       if edmlib.edmApplication:
