@@ -901,12 +901,19 @@ class gradeData:
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
       #Remove missing values
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
+      if (semsBetweenClassesLimit >= 0):
+        #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
+        combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
+        combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
+        norms["semDifference"] = combinedClasses["semDifference"].values
+        #Filter data to only include students with a small enough gap between classes
+        norms = norms.loc[norms.semDifference <= semsBetweenClassesLimit]
       if len(norms) >= nSharedStudents:
         #Set the index of norms to Student ID and sort
         norms.set_index(self.STUDENT_ID_COLUMN, inplace=True)
         norms.sort_index(inplace=True)
-        #norms2 is a DataFrame that includes data from b of students in a
-        norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(a[self.STUDENT_ID_COLUMN].values)]
+        ##Set norms2 to be a dataframe of the data from class b of students who took class a before class b
+        norms2 = b.loc[b[self.STUDENT_ID_COLUMN].isin(norms.index)]
         #Set the index of norms2 to Student ID and sort
         norms2.set_index(self.STUDENT_ID_COLUMN, inplace=True)
         norms2.sort_index(inplace=True)
