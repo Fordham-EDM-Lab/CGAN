@@ -901,7 +901,7 @@ class gradeData:
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
       #Remove missing values
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
-      if (semsBetweenClassesLimit >= 0):
+      if (semsBetweenClassesLimit >= 0 and len(norms) >= nSharedStudents):
         #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
         combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
         combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
@@ -928,7 +928,7 @@ class gradeData:
       norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
       #Remove all data with missing grades
       norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
-      if (semsBetweenClassesLimit >= 0):
+      if (semsBetweenClassesLimit >= 0 and len(norms) >= nSharedStudents):
         #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
         combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
         combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
@@ -1018,9 +1018,10 @@ class gradeData:
       
       if sequenceDetails:
         def yearTruths(x):
-          #This may cause an error, should fix if sequence details are used
-          return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), 
-                  numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
+          freshmen = []
+          for i in x:
+            freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
+          return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
         c = aToBA[self.STUDENT_YEAR_COLUMN].values
         d = aToBB[self.STUDENT_YEAR_COLUMN].values
         e = bToAA[self.STUDENT_YEAR_COLUMN].values
