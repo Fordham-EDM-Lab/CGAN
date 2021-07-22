@@ -858,7 +858,7 @@ class gradeData:
     return completeDf # outputs completed dataframe
 
   #Note: Has an error when sequenceDetails = True if numexpr is not installed
-  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False, semsBetweenClassesLimit = -1):
+  def getCorrelationsWithMinNSharedStudents(self, nSharedStudents = 20, directed = False, classDetails = False, sequenceDetails = False, semsBetweenClassesLimit = -1, compoundNormalization = False):
     """Returns a pandas dataframe with correlations between all available classes based on grades, after normalization.
 
     Args:
@@ -866,6 +866,7 @@ class gradeData:
         directed (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         classDetails (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
         semsBetweenClassesLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
+        compundNormalization (:obj:`bool`, optional): When true normalizes grades by class and by student. When false normalizes grades by class only. Defaults to 'False'.
 
     Returns:
         :obj:`pandas.dataframe`: Pandas dataframe with at least columns "course1", "course2", "corr", "P-value", and "#students", which store class names, their correlation coefficient (0 least to 1 most), the P-value of this calculation, and the number of students shared between these two classes.
@@ -876,11 +877,20 @@ class gradeData:
     start_time = time.time()
     #Change nSharedStudents to 2 if it is less than 2
     nSharedStudents = max(nSharedStudents, 2)
+
     #Create a column of normalized grades in self
     if self.NORMALIZATION_COLUMN not in self.df.columns:
       self.getNormalizationColumn()
     if "semNumber" not in self.df.columns:
       self.makeSemesterNumberColumn()
+    if "studentGPA" not in self.df.columns:
+      self.makeStudentGPAColumn()
+    if compoundNormalization:
+      if self.STUDENT_CLASS_NORMALIZATION_COLUMN not in self.df.columns:
+        self.getNormalizationByStudentByClass()
+      self.df["norm"] = self.df["normByStudentByClass"]
+      print(self.df)
+
     #The following code ensures that all required columns exist before continuing
     if not self.__requiredColumnPresent(self.NORMALIZATION_COLUMN):
       return
@@ -963,17 +973,17 @@ class gradeData:
             #Only gets the last columns of the data if the correlation exists
             if not math.isnan(r):
               if classDetails and sequenceDetails:
-                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[28:40]
-                avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin = result[40:]
-                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn, r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm, avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin))
+                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm, abAGPAMean, baBGPAMean = result[28:42]
+                avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin = result[42:]
+                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn, r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm, abAGPAMean, baBGPAMean, avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen, avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen, crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, crs1SenMin, crs2SenMin))
                 if n != m:
-                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn,r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm, -avNormDifCrs2Fresh, -avNormDifCrs1Fresh, -avNormDifCrs2Soph, -avNormDifCrs1Soph, -avNormDifCrs2Jun, -avNormDifCrs1Jun, -avNormDifCrs2Sen, -avNormDifCrs1Sen, -avGradeDifCrs2Fresh, -avGradeDifCrs1Fresh, -avGradeDifCrs2Soph, -avGradeDifCrs1Soph, -avGradeDifCrs2Jun, -avGradeDifCrs1Jun, -avGradeDifCrs2Sen, -avGradeDifCrs1Sen, crs2FreshMin, crs1FreshMin, crs2SophMin, crs1SophMin, crs2JunMin, crs1JunMin, crs2SenMin, crs1SenMin))
+                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn,r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm, baBGPAMean, abAGPAMean, -avNormDifCrs2Fresh, -avNormDifCrs1Fresh, -avNormDifCrs2Soph, -avNormDifCrs1Soph, -avNormDifCrs2Jun, -avNormDifCrs1Jun, -avNormDifCrs2Sen, -avNormDifCrs1Sen, -avGradeDifCrs2Fresh, -avGradeDifCrs1Fresh, -avGradeDifCrs2Soph, -avGradeDifCrs1Soph, -avGradeDifCrs2Jun, -avGradeDifCrs1Jun, -avGradeDifCrs2Sen, -avGradeDifCrs1Sen, crs2FreshMin, crs1FreshMin, crs2SophMin, crs1SophMin, crs2JunMin, crs1JunMin, crs2SenMin, crs1SenMin))
               elif classDetails:
-                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm = result[28:]
+                abA, abANorm, abB, abBNorm, baA, baANorm, baB, baBNorm, concA, concANorm, concB, concBNorm, abAGPAMean, baBGPAMean = result[28:]
                 # print(n + " " + m + " " + str(r))
-                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn,r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm))
+                f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, abadevg, abbdevg, baadevg, babdevg, abadevn, abbdevn, baadevn, babdevn,r1, p1, c1, abA, abANorm, abB, abBNorm, r2, p2, c2, baB, baBNorm, baA, baANorm, r3, p3, c3, concA, concANorm, concB, concBNorm, abAGPAMean, baBGPAMean))
                 if n != m:
-                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn, r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm))
+                  f.append((m, n, r, p, c, bg, ag, bsg, asg, bn, an, bsn, asn, babdevg, baadevg, abbdevg, abadevg, babdevn, baadevn, abbdevn, abadevn, r2, p2, c2, baB, baBNorm, baA, baANorm, r1, p1, c1, abA, abANorm, abB, abBNorm, r3, p3, c3, concB, concBNorm, concA, concANorm, baBGPAMean, abAGPAMean))
               else:
                 f.append((n, m, r, p, c, ag, bg, asg, bsg, an, bn, asn, bsn, r1, p1, c1, r2, p2, c2, r3, p3, c3))
                 if n != m:
@@ -994,9 +1004,9 @@ class gradeData:
         normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent'))
       else:
         if not sequenceDetails:
-          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)'))
+          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)', 'corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.GPACrs1->2', 'Av.GPACrs2->1'))
         else:
-          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)','corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_sen)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_sen)', 'crs1FreshMin', 'crs2FreshMin', 'crs1SophMin', 'crs2SophMin', 'crs1JunMin', 'crs2JunMin', 'crs1SenMin', 'crs2SenMin'))
+          normoutput = pd.DataFrame(f, columns=('course1', 'course2', 'corr', 'P-value', '#students','avGrade1','avGrade2','stdDevGrade1','stdDevGrade2','avNorm1','avNorm2','stdDevNorm1','stdDevNorm2', 'crs1->2grdStdDev(crs1)','crs1->2grdStdDev(crs2)','crs2->1grdStdDev(crs1)','crs2->1grdStdDev(crs2)','crs1->2nrmStdDev(crs1)','crs1->2nrmStdDev(crs2)','crs2->1nrmStdDev(crs1)','crs2->1nrmStdDev(crs2)','corrCourse1->2', 'P-valueCrs1->2','#studentsCrs1->2', 'Av.GradeCrs1->2(crs1)', 'Av.NormCrs1->2(crs1)', 'Av.GradeCrs1->2(crs2)','Av.NormCrs1->2(crs2)','corrCourse2->1', 'P-valueCrs2->1','#studentsCrs2->1', 'Av.GradeCrs2->1(crs2)','Av.NormCrs2->1(crs2)', 'Av.GradeCrs2->1(crs1)', 'Av.NormCrs2->1(crs1)', 'corrCoursesConcurrent', 'P-valueCrsConcurrent','#studentsCrsConcurrent','Av.GradeConcurrent(crs1)','Av.NormConcurrent(crs1)','Av.GradeConcurrent(crs2)','Av.NormConcurrent(crs2)', 'Av.GPACrs1->2', 'Av.GPACrs2->1', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_fresh)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_soph)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_jun)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs1_sen)', 'Av.NormCrs1->2-Av.NormCrs2->1(crs2_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_fresh)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_soph)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_jun)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs1_sen)', 'Av.GradeCrs1->2-Av.GradeCrs2->1(crs2_sen)', 'crs1FreshMin', 'crs2FreshMin', 'crs1SophMin', 'crs2SophMin', 'crs1JunMin', 'crs2JunMin', 'crs1SenMin', 'crs2SenMin'))
     if classDetails:
       #Add more columns for classDetails
       normoutput['course1GradeMean'] = normoutput['course1'].apply(lambda x: rawGrades[x])
@@ -1079,11 +1089,11 @@ class gradeData:
     //final row is various additional stdev and normalization data
     res contains additional data if classDetails or sequenceDetails
     """
-    #norms is a DataFrame that includes data from a of students in b (students a and b share)
+    #norms is a DataFrame that includes data from a of students in b
     norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
     #Remove all data with missing grades
     norms = norms.dropna(subset=[self.NORMALIZATION_COLUMN])
-    if (semsBetweenClassesLimit >= 0):
+    if (semsBetweenClassesLimit >= 0 and len(norms) >= nSharedStudents):
       #Combine dataframes into new dataframe combinedClasses to calculate the gap between classes
       combinedClasses = norms.set_index("SID").join(b.set_index("SID"), lsuffix = "_a", rsuffix = "_b")
       combinedClasses["semDifference"] = abs(combinedClasses["semNumber_a"] - combinedClasses["semNumber_b"])
@@ -1170,12 +1180,17 @@ class gradeData:
       baBNormMean = bToAB[self.NORMALIZATION_COLUMN].mean()
       concBMean = concurrentB[self.FINAL_GRADE_COLUMN].mean()
       concBNormMean = concurrentB[self.NORMALIZATION_COLUMN].mean()
+      #Calculate the mean GPA for each course order
+      #Note that the students will have the same gpa regardless of being in class a or b, so only 2 calculations are needed
+      abAGPAMean = aToBA["studentGPA"].mean()
+      baBGPAMean = bToAB["studentGPA"].mean()
     
     if sequenceDetails:
       def yearTruths(x):
-        #This may cause an error, should fix if sequence details are used
-        return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), 
-                numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
+        freshmen = []
+        for i in x:
+          freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
+        return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
       c = aToBA[self.STUDENT_YEAR_COLUMN].values
       d = aToBB[self.STUDENT_YEAR_COLUMN].values
       e = bToAA[self.STUDENT_YEAR_COLUMN].values
@@ -1248,7 +1263,7 @@ class gradeData:
     #add more data if using classDetails or sequenceDetails
     if classDetails:
       res += [abAMean, abANormMean, abBMean, abBNormMean, baAMean, baANormMean, 
-      baBMean, baBNormMean, concAMean, concANormMean, concBMean, concBNormMean]
+      baBMean, baBNormMean, concAMean, concANormMean, concBMean, concBNormMean, abAGPAMean, baBGPAMean]
     if sequenceDetails:
       res += [avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, 
               avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen,
@@ -1258,9 +1273,97 @@ class gradeData:
               crs1SenMin, crs2SenMin]
     #return the list of data
     return res
+    
+    if sequenceDetails:
+      #returns list of list of bools of whether or not each student is a freshman, sophomore, junior, and senior
+      def yearTruths(x):
+        try:
+          return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
+        except NameError:
+          freshmen = []
+          for i in x:
+            freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
+          return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
+        aToBAFreshT, aToBASophT, aToBAJunT, aToBASenT = yearTruths(c)
+        aToBBFreshT, aToBBSophT, aToBBJunT, aToBBSenT = yearTruths(d)
+        bToAAFreshT, bToAASophT, bToAAJunT, bToAASenT = yearTruths(e)
+        bToABFreshT, bToABSophT, bToABJunT, bToABSenT = yearTruths(f)
+        crs1FreshMin = min(sum(aToBAFreshT), sum(bToAAFreshT))
+        crs2FreshMin = min(sum(aToBBFreshT), sum(bToABFreshT))
+        crs1SophMin = min(sum(aToBASophT), sum(bToAASophT))
+        crs2SophMin = min(sum(aToBBSophT), sum(bToABSophT))
+        crs1JunMin = min(sum(aToBAJunT), sum(bToAAJunT))
+        crs2JunMin = min(sum(aToBBJunT), sum(bToABJunT))
+        crs1SenMin = min(sum(aToBASenT), sum(bToAASenT))
+        crs2SenMin = min(sum(aToBBSenT), sum(bToABSenT))
+        aToBAFresh = aToBA.loc[aToBAFreshT]
+        aToBASoph = aToBA.loc[aToBASophT]
+        aToBAJun = aToBA.loc[aToBAJunT]
+        aToBASen = aToBA.loc[aToBASenT]
+        aToBBFresh = aToBB.loc[aToBBFreshT]
+        aToBBSoph = aToBB.loc[aToBBSophT]
+        aToBBJun = aToBB.loc[aToBBJunT]
+        aToBBSen = aToBB.loc[aToBBSenT]
+        bToAAFresh = bToAA.loc[bToAAFreshT]
+        bToAASoph = bToAA.loc[bToAASophT]
+        bToAAJun = bToAA.loc[bToAAJunT]
+        bToAASen = bToAA.loc[bToAASenT]
+        bToABFresh = bToAB.loc[bToABFreshT]
+        bToABSoph = bToAB.loc[bToABSophT]
+        bToABJun = bToAB.loc[bToABJunT]
+        bToABSen = bToAB.loc[bToABSenT]
+        nrmAlias, grdAlias = self.NORMALIZATION_COLUMN, self.FINAL_GRADE_COLUMN
+        avNormDifCrs2Fresh = (aToBBFresh[nrmAlias].mean() - bToABFresh[nrmAlias].mean()) if crs2FreshMin > 0 else np.nan
+        avNormDifCrs1Fresh = (aToBAFresh[nrmAlias].mean() - bToAAFresh[nrmAlias].mean()) if crs1FreshMin > 0 else np.nan
+        avNormDifCrs2Soph = (aToBBSoph[nrmAlias].mean() - bToABSoph[nrmAlias].mean()) if crs2SophMin > 0 else np.nan
+        avNormDifCrs1Soph = (aToBASoph[nrmAlias].mean() - bToAASoph[nrmAlias].mean()) if crs1SophMin > 0 else np.nan
+        avNormDifCrs2Jun = (aToBBJun[nrmAlias].mean() - bToABJun[nrmAlias].mean()) if crs2JunMin > 0 else np.nan
+        avNormDifCrs1Jun = (aToBAJun[nrmAlias].mean() - bToAAJun[nrmAlias].mean()) if crs1JunMin > 0 else np.nan
+        avNormDifCrs2Sen = (aToBBSen[nrmAlias].mean() - bToABSen[nrmAlias].mean()) if crs2SenMin > 0 else np.nan
+        avNormDifCrs1Sen = (aToBASen[nrmAlias].mean() - bToAASen[nrmAlias].mean()) if crs1SenMin > 0 else np.nan
+        avGradeDifCrs2Fresh = (aToBBFresh[grdAlias].mean() - bToABFresh[grdAlias].mean()) if crs2FreshMin > 0 else np.nan
+        avGradeDifCrs1Fresh = (aToBAFresh[grdAlias].mean() - bToAAFresh[grdAlias].mean()) if crs1FreshMin > 0 else np.nan
+        avGradeDifCrs2Soph = (aToBBSoph[grdAlias].mean() - bToABSoph[grdAlias].mean()) if crs2SophMin > 0 else np.nan
+        avGradeDifCrs1Soph = (aToBASoph[grdAlias].mean() - bToAASoph[grdAlias].mean()) if crs1SophMin > 0 else np.nan
+        avGradeDifCrs2Jun = (aToBBJun[grdAlias].mean() - bToABJun[grdAlias].mean()) if crs2JunMin > 0 else np.nan
+        avGradeDifCrs1Jun = (aToBAJun[grdAlias].mean() - bToAAJun[grdAlias].mean()) if crs1JunMin > 0 else np.nan
+        avGradeDifCrs2Sen = (aToBBSen[grdAlias].mean() - bToABSen[grdAlias].mean()) if crs2SenMin > 0 else np.nan
+        avGradeDifCrs1Sen = (aToBASen[grdAlias].mean() - bToAASen[grdAlias].mean()) if crs1SenMin > 0 else np.nan
+
+      #Calculate correlation and p-value of normalized grades
+      corr, Pvalue = pearsonr(bNorms, aNorms)
+      corr1, Pvalue1 = math.nan, math.nan
+      corr2, Pvalue2 = math.nan, math.nan
+      corr3, Pvalue3 = math.nan, math.nan
+      #Calculate correlation and p-value of normalized grades when A is taken before, after, and concurrent to B
+      if len(abANorms) >= 2:
+        corr1, Pvalue1 = pearsonr(abBNorms,abANorms)
+      if len(baANorms) >= 2:
+        corr2, Pvalue2 = pearsonr(baBNorms,baANorms)
+      if len(concANorms) >= 2:
+        corr3, Pvalue3 = pearsonr(concBNorms,concANorms)
+      
+      #res is a list of all the data calculated above
+      res = [corr, Pvalue, len(aNorms), corr1, Pvalue1, len(abANorms), corr2, Pvalue2, 
+        len(baANorms), corr3, Pvalue3, len(concANorms), AGrd, BGrd, AstdDevGrd, BstdDevGrd, ANrm, BNrm, 
+        AstdDevNrm, BstdDevNrm, ABASDGrd, ABBSDGrd, BAASDGrd, BABSDGrd, ABASDNrm, ABBSDNrm, BAASDNrm, BABSDNrm]
+
+      #add more data if using classDetails or sequenceDetails
+      if classDetails:
+        res += [abAMean, abANormMean, abBMean, abBNormMean, baAMean, baANormMean, 
+        baBMean, baBNormMean, concAMean, concANormMean, concBMean, concBNormMean, abAGPAMean, baBGPAMean]
+      if sequenceDetails:
+        res += [avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, 
+                avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen,
+                avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, 
+                avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen,
+                crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, 
+                crs1SenMin, crs2SenMin]
+      #return the list of data
+      return res
 
 
-  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False, semesterLimit = -1):
+  def exportCorrelationsWithMinNSharedStudents(self, filename = 'CorrelationOutput_EDMLIB.csv', nStudents = 20, directedCorr = False, detailed = False, sequenced = False, semesterLimit = -1, compound = False):
     """Exports CSV file with all correlations between classes with the given minimum number of shared students. File format has columns 'course1', 'course2', 'corr', 'P-value', '#students'.
 
     Args:
@@ -1269,12 +1372,12 @@ class gradeData:
         directedCorr (:obj:`bool`, optional): Whether or not to include data specific to students who took class A before B, vice versa, and concurrently. Defaults to 'False'.
         detailed (:obj:`bool`, optional): Whether or not to include means of student grades, normalized grades, and standard deviations used. Defaults to 'False'.
         semesterLimit (:obj:`int`, optional): Maximum number of semesters that a student can take between two classes. If negative there is no limit. Defaults to -1.
+        compound (:obj:`bool`, optional): When true normalizes grades by class and by student. When false normalizes grades by class only. Defaults to 'False'.
 
     """
     if not filename.endswith('.csv'):
       filename = "".join((filename, '.csv'))
-    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced, semsBetweenClassesLimit = semesterLimit).to_csv(filename, index=False)
-
+    self.getCorrelationsWithMinNSharedStudents(nSharedStudents=nStudents, directed=directedCorr, classDetails = detailed, sequenceDetails = sequenced, semsBetweenClassesLimit = semesterLimit, compoundNormalization = compound).to_csv(filename, index=False)
 
   def exportCorrelationsWithAvailableClasses(self, filename = 'CorrelationOutput_EDMLIB.csv'):
     result = self.getCorrelationsWithMinNSharedStudents()
@@ -1668,4 +1771,9 @@ class gradeData:
     #Make this list the column semNumber in the dataFrame
     self.df["semNumber"] = semNumberList
     
-
+  def makeStudentGPAColumn(self):
+    gpaDict = self.getDictOfStudentGPAs()
+    gpaList = []
+    for student in self.df["SID"]:
+      gpaList.append(gpaDict[student])
+    self.df["studentGPA"] = gpaList
