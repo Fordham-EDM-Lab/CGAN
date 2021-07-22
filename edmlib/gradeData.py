@@ -889,7 +889,6 @@ class gradeData:
       if self.STUDENT_CLASS_NORMALIZATION_COLUMN not in self.df.columns:
         self.getNormalizationByStudentByClass()
       self.df["norm"] = self.df["normByStudentByClass"]
-      print(self.df)
 
     #The following code ensures that all required columns exist before continuing
     if not self.__requiredColumnPresent(self.NORMALIZATION_COLUMN):
@@ -1031,6 +1030,10 @@ class gradeData:
       normoutput['(#studentsCrs1->2) / (Total # students)'] = normoutput['#studentsCrs1->2'] / normoutput['#students']
       normoutput['(#studentsCrs2->1) / (Total # students)'] = normoutput['#studentsCrs2->1'] / normoutput['#students']
       normoutput['(#studentsCrsConcurrent) / (Total # students)'] = normoutput['#studentsCrsConcurrent'] / normoutput['#students']
+
+    #Remake normalization column to single normalization
+    if compoundNormalization:
+      self.getNormalizationColumn()
 
     #print details about the function
     print(str((totalClasses ** 2) - len(normoutput.index)) + ' class correlations dropped out of ' 
