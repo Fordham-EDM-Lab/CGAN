@@ -39,23 +39,25 @@ class classCorrelationData:
         sourceFileOrDataFrame (:obj:`object`): name of the .CSV file (extension included) in the same path or pandas dataframe variable. Dataframes are copied so as to not affect the original variable.
 
     """
+    # if the sourceFileOrDataFrame variable is of type str, then set sourceFile variable to sourceFileOrDataFrame 
+    # and df variable to the contents of sourceFile
     if type(sourceFileOrDataFrame).__name__ == 'str':
       self.sourceFile = sourceFileOrDataFrame
       self.df = pd.read_csv(self.sourceFile)
 
     elif type(sourceFileOrDataFrame).__name__ == 'DataFrame':
-# JH: Make a copy if the caller doesn't want to change the dataFrame
-#     if not edmApplication:
+    # JH: Make a copy if the caller doesn't want to change the dataFrame
+    #     if not edmApplication:
       if not copyDataFrame:
         self.df = sourceFileOrDataFrame
       else:
         self.df = sourceFileOrDataFrame.copy()
   
-# M: returns the unique values in the column 'course1'
+  # M: returns the unique values in the column 'course1'
   def getClassesUsed(self):
     return self.df['course1'].unique()
 
-# M: returns the unique values in column 'course1' (Does not include NaN)
+  # M: returns the unique values in column 'course1' (Does not include NaN)
   def getNumberOfClassesUsed(self):
     return self.df['course1'].nunique()
 
@@ -181,7 +183,7 @@ class classCorrelationData:
 
     Args:
         coefficient (:obj:`float`, optional): Minimum correlation coefficient to filter correlations by.
-        pval (:obj:`float`, optional): Maximum P-value to filter correlations by.
+        pval (:obj:`float`, optional): Maximum P-value to filter correlations by. Defaults to 0.05 (a standard P-value limit used throughout the sciences)
         outputName (:obj:`str`, optional): First part of the outputted file names, e.g. fileName.csv, fileName.html, etc.
         outputSize (:obj:`int`, optional): Size (units unknown) of html graph to output. 200 by default.
         imageSize (:obj:`int`, optional): Size (units unknown) of image of the graph to output. 300 by default. Increase this if node labels are cut off.
@@ -189,11 +191,17 @@ class classCorrelationData:
         outputImage (:obj:`bool`, optional): Whether or not to export an image of the graph. Defaults to :obj:`True`. 
     
     """
+    # M: The parameters should usually be changed when the function is called!!
+    
     # M: initialized holoview of size outputSize
     hv.output(size=outputSize)
     
-    # M: creates a copy of df and sets course1 and course2 to not have elements with numbers in the beginning
+    # M:  creates a copy of df and sets course1 and course2 to the elements in the respective rows w 
+    #     substring index 0 to the first number, exclusive (if number is first, element would be empty)
     majorFiltered = self.df.copy()
+    # M: added the makeMissingValuesNanInColumn so that none of the entries are empty
+    # majorFiltered.removeNanInColumn('course1')
+    # majorFiltered.removeNanInColumn('course2')
     majorFiltered['course1'] = majorFiltered['course1'].apply(lambda course: re.findall('\A\D+', course)[0])
     majorFiltered['course2'] = majorFiltered['course2'].apply(lambda course: re.findall('\A\D+', course)[0])
     
@@ -243,7 +251,7 @@ class classCorrelationData:
       return
     print(str(len(majorCorrelations)) + ' valid major correlations found.')
     
-    # M: Sets output to majorCorrelaions with the specified column names
+    # M: Sets output to majorCorrelations and sets the column names
     output = pd.DataFrame(majorCorrelations, columns=('source', 'target', 'corr', 'P-value', '#students'))
     # M: Sets newMajors to have the unique sources and targets (by putting them in a set) 
     newMajors = set(output['source'])
@@ -254,11 +262,19 @@ class classCorrelationData:
     # M: sets 'nodes' to be sortedMajors w/ column name 'name'
     nodes = pd.DataFrame(sortedMajors, columns = ['name'])
     
-    ''' NEED TO WORK ON THIS MORE
-    '''
-    # M: output source and target are changed with function that does nodes.index[name == major] first element of
+    # M: added this to check the value of output source and target before the apply
+    print("source before:", output['source'])
+    print("target before:", output['target'])
+
+    # M: output source and target are changed to numeric instead of string objects to represent the sources and targets
     output['source'] = output['source'].apply(lambda major: nodes.index[nodes['name'] == major][0])
     output['target'] = output['target'].apply(lambda major: nodes.index[nodes['name'] == major][0])
+
+    # M: Added this to check what each value would be set to after the apply
+    print("index:", nodes.index[nodes['name'] == major][0])
+    print("source now:", output['source'])
+    print("target now:", output['target'])
+    print(output['source'].dtype)
 
     # M: constructs the chord graph
     output.to_csv(outputName + '.csv', index=False)
@@ -268,7 +284,6 @@ class classCorrelationData:
         opts.Chord(cmap='Category20', edge_cmap='Category20', edge_color=dim('source').str(), 
                   labels='name', node_color=dim('index').str()))
     graph = hv.render(chord)
-# JH: So messy! Where does this go?
     output_file(outDir +outputName + '.html', mode='inline')
     # M: Saves and shows graph if showGraph true
     save(graph)
