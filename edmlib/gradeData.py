@@ -1189,16 +1189,21 @@ class gradeData:
       baBGPAMean = bToAB["studentGPA"].mean()
     
     if sequenceDetails:
+      #returns list of list of bools of whether or not each student is a freshman, sophomore, junior, and senior
       def yearTruths(x):
-        freshmen = []
-        for i in x:
-          freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
-        return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
+        try:
+          return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
+        except NameError:
+          freshmen = []
+          for i in x:
+            freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
+          return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
+      
       c = aToBA[self.STUDENT_YEAR_COLUMN].values
       d = aToBB[self.STUDENT_YEAR_COLUMN].values
       e = bToAA[self.STUDENT_YEAR_COLUMN].values
       f = bToAB[self.STUDENT_YEAR_COLUMN].values
-
+      
       aToBAFreshT, aToBASophT, aToBAJunT, aToBASenT = yearTruths(c)
       aToBBFreshT, aToBBSophT, aToBBJunT, aToBBSenT = yearTruths(d)
       bToAAFreshT, bToAASophT, bToAAJunT, bToAASenT = yearTruths(e)
@@ -1244,94 +1249,6 @@ class gradeData:
       avGradeDifCrs1Jun = (aToBAJun[grdAlias].mean() - bToAAJun[grdAlias].mean()) if crs1JunMin > 0 else np.nan
       avGradeDifCrs2Sen = (aToBBSen[grdAlias].mean() - bToABSen[grdAlias].mean()) if crs2SenMin > 0 else np.nan
       avGradeDifCrs1Sen = (aToBASen[grdAlias].mean() - bToAASen[grdAlias].mean()) if crs1SenMin > 0 else np.nan
-
-    #Calculate correlation and p-value of normalized grades
-    corr, Pvalue = pearsonr(bNorms, aNorms)
-    corr1, Pvalue1 = math.nan, math.nan
-    corr2, Pvalue2 = math.nan, math.nan
-    corr3, Pvalue3 = math.nan, math.nan
-    #Calculate correlation and p-value of normalized grades when A is taken before, after, and concurrent to B
-    if len(abANorms) >= 2:
-      corr1, Pvalue1 = pearsonr(abBNorms,abANorms)
-    if len(baANorms) >= 2:
-      corr2, Pvalue2 = pearsonr(baBNorms,baANorms)
-    if len(concANorms) >= 2:
-      corr3, Pvalue3 = pearsonr(concBNorms,concANorms)
-    
-    #res is a list of all the data calculated above
-    res = [corr, Pvalue, len(aNorms), corr1, Pvalue1, len(abANorms), corr2, Pvalue2, 
-      len(baANorms), corr3, Pvalue3, len(concANorms), AGrd, BGrd, AstdDevGrd, BstdDevGrd, ANrm, BNrm, 
-      AstdDevNrm, BstdDevNrm, ABASDGrd, ABBSDGrd, BAASDGrd, BABSDGrd, ABASDNrm, ABBSDNrm, BAASDNrm, BABSDNrm]
-
-    #add more data if using classDetails or sequenceDetails
-    if classDetails:
-      res += [abAMean, abANormMean, abBMean, abBNormMean, baAMean, baANormMean, 
-      baBMean, baBNormMean, concAMean, concANormMean, concBMean, concBNormMean, abAGPAMean, baBGPAMean]
-    if sequenceDetails:
-      res += [avNormDifCrs1Fresh, avNormDifCrs2Fresh, avNormDifCrs1Soph, avNormDifCrs2Soph, 
-              avNormDifCrs1Jun, avNormDifCrs2Jun, avNormDifCrs1Sen, avNormDifCrs2Sen,
-              avGradeDifCrs1Fresh, avGradeDifCrs2Fresh, avGradeDifCrs1Soph, avGradeDifCrs2Soph, 
-              avGradeDifCrs1Jun, avGradeDifCrs2Jun, avGradeDifCrs1Sen, avGradeDifCrs2Sen,
-              crs1FreshMin, crs2FreshMin, crs1SophMin, crs2SophMin, crs1JunMin, crs2JunMin, 
-              crs1SenMin, crs2SenMin]
-    #return the list of data
-    return res
-    
-    if sequenceDetails:
-      #returns list of list of bools of whether or not each student is a freshman, sophomore, junior, and senior
-      def yearTruths(x):
-        try:
-          return [numexpr.evaluate('(x == 1)'), numexpr.evaluate('(x == 2)'), numexpr.evaluate('(x == 3)'), numexpr.evaluate('(x == 4)')]
-        except NameError:
-          freshmen = []
-          for i in x:
-            freshmen.append((i == "First-Time Freshman") or (i == "Continuing Freshman"))
-          return [freshmen, x == "Sophomores", x == "Juniors", x == "Seniors"]
-        aToBAFreshT, aToBASophT, aToBAJunT, aToBASenT = yearTruths(c)
-        aToBBFreshT, aToBBSophT, aToBBJunT, aToBBSenT = yearTruths(d)
-        bToAAFreshT, bToAASophT, bToAAJunT, bToAASenT = yearTruths(e)
-        bToABFreshT, bToABSophT, bToABJunT, bToABSenT = yearTruths(f)
-        crs1FreshMin = min(sum(aToBAFreshT), sum(bToAAFreshT))
-        crs2FreshMin = min(sum(aToBBFreshT), sum(bToABFreshT))
-        crs1SophMin = min(sum(aToBASophT), sum(bToAASophT))
-        crs2SophMin = min(sum(aToBBSophT), sum(bToABSophT))
-        crs1JunMin = min(sum(aToBAJunT), sum(bToAAJunT))
-        crs2JunMin = min(sum(aToBBJunT), sum(bToABJunT))
-        crs1SenMin = min(sum(aToBASenT), sum(bToAASenT))
-        crs2SenMin = min(sum(aToBBSenT), sum(bToABSenT))
-        aToBAFresh = aToBA.loc[aToBAFreshT]
-        aToBASoph = aToBA.loc[aToBASophT]
-        aToBAJun = aToBA.loc[aToBAJunT]
-        aToBASen = aToBA.loc[aToBASenT]
-        aToBBFresh = aToBB.loc[aToBBFreshT]
-        aToBBSoph = aToBB.loc[aToBBSophT]
-        aToBBJun = aToBB.loc[aToBBJunT]
-        aToBBSen = aToBB.loc[aToBBSenT]
-        bToAAFresh = bToAA.loc[bToAAFreshT]
-        bToAASoph = bToAA.loc[bToAASophT]
-        bToAAJun = bToAA.loc[bToAAJunT]
-        bToAASen = bToAA.loc[bToAASenT]
-        bToABFresh = bToAB.loc[bToABFreshT]
-        bToABSoph = bToAB.loc[bToABSophT]
-        bToABJun = bToAB.loc[bToABJunT]
-        bToABSen = bToAB.loc[bToABSenT]
-        nrmAlias, grdAlias = self.NORMALIZATION_COLUMN, self.FINAL_GRADE_COLUMN
-        avNormDifCrs2Fresh = (aToBBFresh[nrmAlias].mean() - bToABFresh[nrmAlias].mean()) if crs2FreshMin > 0 else np.nan
-        avNormDifCrs1Fresh = (aToBAFresh[nrmAlias].mean() - bToAAFresh[nrmAlias].mean()) if crs1FreshMin > 0 else np.nan
-        avNormDifCrs2Soph = (aToBBSoph[nrmAlias].mean() - bToABSoph[nrmAlias].mean()) if crs2SophMin > 0 else np.nan
-        avNormDifCrs1Soph = (aToBASoph[nrmAlias].mean() - bToAASoph[nrmAlias].mean()) if crs1SophMin > 0 else np.nan
-        avNormDifCrs2Jun = (aToBBJun[nrmAlias].mean() - bToABJun[nrmAlias].mean()) if crs2JunMin > 0 else np.nan
-        avNormDifCrs1Jun = (aToBAJun[nrmAlias].mean() - bToAAJun[nrmAlias].mean()) if crs1JunMin > 0 else np.nan
-        avNormDifCrs2Sen = (aToBBSen[nrmAlias].mean() - bToABSen[nrmAlias].mean()) if crs2SenMin > 0 else np.nan
-        avNormDifCrs1Sen = (aToBASen[nrmAlias].mean() - bToAASen[nrmAlias].mean()) if crs1SenMin > 0 else np.nan
-        avGradeDifCrs2Fresh = (aToBBFresh[grdAlias].mean() - bToABFresh[grdAlias].mean()) if crs2FreshMin > 0 else np.nan
-        avGradeDifCrs1Fresh = (aToBAFresh[grdAlias].mean() - bToAAFresh[grdAlias].mean()) if crs1FreshMin > 0 else np.nan
-        avGradeDifCrs2Soph = (aToBBSoph[grdAlias].mean() - bToABSoph[grdAlias].mean()) if crs2SophMin > 0 else np.nan
-        avGradeDifCrs1Soph = (aToBASoph[grdAlias].mean() - bToAASoph[grdAlias].mean()) if crs1SophMin > 0 else np.nan
-        avGradeDifCrs2Jun = (aToBBJun[grdAlias].mean() - bToABJun[grdAlias].mean()) if crs2JunMin > 0 else np.nan
-        avGradeDifCrs1Jun = (aToBAJun[grdAlias].mean() - bToAAJun[grdAlias].mean()) if crs1JunMin > 0 else np.nan
-        avGradeDifCrs2Sen = (aToBBSen[grdAlias].mean() - bToABSen[grdAlias].mean()) if crs2SenMin > 0 else np.nan
-        avGradeDifCrs1Sen = (aToBASen[grdAlias].mean() - bToAASen[grdAlias].mean()) if crs1SenMin > 0 else np.nan
 
       #Calculate correlation and p-value of normalized grades
       corr, Pvalue = pearsonr(bNorms, aNorms)
