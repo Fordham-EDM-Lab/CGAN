@@ -1,15 +1,18 @@
 import time
 
 from numpy import string_
-from edmlib import gradeData
+#from edmlib import gradeData
 from scipy.stats.stats import pearsonr
 import networkx as nx
+import filecmp
 from edmlib.edmlib import *
-from edmlib.gradeData import gradeData
+#from edmlib.gradeData import gradeData
 from edmlib.classCorrelationData import classCorrelationData
 
 import argparse
+import sys
 import os
+import shutil
 from edmlib.edmlib import edmApplication, outDir
 import re
 #import matplotlib.pyplot as plt
@@ -48,32 +51,61 @@ otherClasses = ['Physics1501',
 # majorFiltered['course1'] = majorFiltered['course1'].apply(lambda course: print(course))
 
 def main(args):
+    export = False
     df = classCorrelationData(os.path.join(args.datadir, args.csvfile))
-    print(df.getClassesUsed())
-    # print(df.getNumberOfClassesUsed())
-    # print(df.printUniqueValuesInColumn(args.oneCol)) #("course1")
-    # print(df.printClassesUsed())
-    # print(df.getEntryCount())
-    # df.printEntryCount()
-    # print(df.printFirstXRows())
-    # print(df.printMajors())
+    
+    # checks which function is specified and then carries out the function
+    # if we can export the result, we set export to True (scroll down to view what happens when export is True/False
+    if(args.funct == "getClassesUsed"):
+        print(df.getClassesUsed())
+    elif(args.funct == "getNumberOfClassesUsed"):
+        print(df.getNumberOfClassesUsed())
+    elif(args.funct == "printUniqueValuesInColumn"):
+        df.printUniqueValuesInColumn(args.oneCol) #("course1")
+    elif(args.funct == "printClassesUsed"):
+        df.printClassesUsed()
+    elif(args.funct == "getEntryCount"):
+        print(df.getEntryCount())
+    elif(args.funct == "printEntryCount"):
+        df.printEntryCount()
+    elif(args.funct == "printFirstXRows"):
+        df.printFirstXRows(args.rows)
+    elif(args.funct == "printMajors"):
+        df.printMajors()
 
-    # print(df.filterColumnToValues(args.oneCol, args.list) #("corr", [0, 1]))
-    # print(df.exportCSV())
+    elif(args.funct == "filterColumnToValues"):
+        df.removeNanInColumn(args.oneCol) #("course1")
 
-    # print(df.filterToMultipleMajorsOrClasses(args.majorList, args.classList, args.bool1) #([], ["ComputerandInfoScience4001"], False))
-    # print(df.getEntryCount()) # to check the remaining entry count after the filterToMultipleMajorsOrClasses function
+        print(df.filterColumnToValues(args.oneCol, args.valList)) #("corr", [0, 1]))
+        export = True
+        #df.exportCSV(fileName = "currFilterColumnToValues.csv")
+    
+    elif(args.funct == "exportCSV"):
+        print(df.exportCSV())
 
-    # print(df.substituteSubStrInColumn(args.oneCol, args.toRepStr, args.newStr) #('course1', 'cool', 'drool'))
-    # df.printUniqueValuesInColumn(args.oneCol) #("course1") # to print the unique values after the substituteSubStrInColumn function
+    elif(args.funct == "filterToMultipleMajorsOrClasses"):
+        df.removeNanInColumn("course1")
+        print(df.filterToMultipleMajorsOrClasses(args.majorList, args.classList, args.bool1)) #([], ["ComputerandInfoScience4001"], False))
+        export = True
+        #df.exportCSV(fileName = "currFilterToMultipleMajorsOrClasses.csv")
 
-    # made sure all the required columns exist
-    # df.dropMissingValuesInColumn("corr")
-    # df.dropMissingValuesInColumn("P-value")
-    # df.dropMissingValuesInColumn("course1")
-    # df.dropMissingValuesInColumn("course2")
-    # print(df.chordGraphByMajor(corr, pVal)) #(0.4, 1))
+    elif(args.funct == "getEntryCount"):
+        print(df.getEntryCount()) # to check the remaining entry count after the filterToMultipleMajorsOrClasses function
 
+    elif(args.funct == "substituteSubStrInColumn"):
+        print(df.substituteSubStrInColumn(args.oneCol, args.subString, args.substitute)) #('course1', 'cool', 'drool'))
+        export = True
+    elif(args.funct == "printUniqueValuesInColumn"):
+        df.printUniqueValuesInColumn(args.oneCol) #("course1") # to print the unique values after the substituteSubStrInColumn function
+
+    elif(args.funct == "chordGraphByMajor"):
+        # made sure all the required columns exist
+        df.dropMissingValuesInColumn("corr")
+        df.dropMissingValuesInColumn("P-value")
+        df.dropMissingValuesInColumn("course1")
+        df.dropMissingValuesInColumn("course2")
+        print(df.chordGraphByMajor(args.corr, args.pVal, args.fileName, args.outputSize, args.imageSize, args.bool1, args.bool2)) #(0.4, 1)
+        # NOTE: This graph csv is already exported within the function :)
     # Trying to test this - START
     # graph = df.getNxGraph(None)
 
@@ -81,34 +113,152 @@ def main(args):
     # print(g)
     # print(plt.plot(df.getNxGraph())) # how to check graph?
 
-    # print(df.getCliques())
-    # df.outputCliqueDistribution()
+    elif(args.funct == "getCliques"):
+        print(df.getCliques(args.minNodes, args.corr))
+    elif(args.funct == "outputCliqueDistribution"):
+        df.outputCliqueDistribution()
 
-    # df.printUniqueValuesInColumn(args.oneCol) #("corr")
-    # df.makeMissingValuesNanInColumn(args.oneCol) #("corr") # Note: to test this, I made one of the rows have a space as the input, we can delete that testing purpose row later
-    # df.printUniqueValuesInColumn(args.oneCol) #("corr")
-    # df.removeNanInColumn(args.oneCol) #("corr")
-    # df.printUniqueValuesInColumn(args.oneCol) #("corr") # to test if the row containing nan has been removed
+    elif(args.funct == "makeMissingValuesNanInColumn"):
+        df.printUniqueValuesInColumn(args.oneCol) #("course1")
+        
+        df.makeMissingValuesNanInColumn(args.oneCol) #("course1") # Note: to test this, I made one of the rows have a space as the input, we can delete that testing purpose row later
+        export = True
+        
+        df.printUniqueValuesInColumn(args.oneCol) #("course1")
+    
+    elif(args.funct == "removeNanInColumn"):
+        df.printUniqueValuesInColumn(args.oneCol)
+        
+        df.removeNanInColumn(args.oneCol) #("course1")
+        export = True
+        
+        df.printUniqueValuesInColumn(args.oneCol) #("course1") # to test if the row containing nan has been removed
 
-    # df.printUniqueValuesInColumn(args.oneCol) #("corr") # check the values before the 'dropMissingValuesInColumn' function
-    # df.dropMissingValuesInColumn(args.oneCol) #("corr")
-    # df.printUniqueValuesInColumn(args.oneCol) #("corr") # check values after the 'dropMissingValuesInColumn' function
+    elif(args.funct == "dropMissingValuesInColumn"):
+        df.printUniqueValuesInColumn(args.oneCol) #("course1") # check the values before the 'dropMissingValuesInColumn' function
+        
+        df.dropMissingValuesInColumn(args.oneCol) #("course1")
+        export = True
+        
+        df.printUniqueValuesInColumn(args.oneCol) #("course1") # check values after the 'dropMissingValuesInColumn' function
 
-    # df.convertColumnToString(args.oneCol) #("corr")
+    elif(args.funct == "convertColumnToString"):
+        df.convertColumnToString(args.oneCol) #("course1")
+    else:
+        print("Error: Please Input Valid Correlation Data Function Name")
+
+    # if export is True, we check if the CSV correct file is already made
+    # if the CSV correct file exists:
+    #   we create another CSV file containing the output from this run
+    #   we then compare the current output CSV to the correct output CSV
+    # else:
+    #   we make the output from this run equal to the CSV correct file
+    if(export):
+        correctFile = "correct" + args.funct.capitalize() + ".csv"
+        # simplify this (for example, I used './correctFiles' a few times, so I gotta make that a variable outside of the else)
+        # also
+
+        if(os.path.isdir('./correctFiles') and os.path.isfile('./correctFiles' + "/" + correctFile)):
+            exportFile = "curr" + args.funct.capitalize() + ".csv"
+            correctFile = "correct" + args.funct.capitalize() + ".csv"
+            save_path = './outputFiles'
+            
+            isdir = os.path.isdir(save_path)
+            if(not isdir):
+                os.mkdir(save_path)
+            
+            completeName = save_path + "/" + exportFile
+
+            df.exportCSV(fileName = completeName)
+            # check this file against file w fileName "check" + args.funct.capitalize() + ".csv"
+            testBool = filecmp.cmp(completeName, './correctFiles' + "/" + correctFile, False)
+            
+            if testBool:
+                print("output matches correct file")
+            else:
+                print("Error: this output does not match the correct file output")
+        
+        else:
+            print("No file to check against ... making this output the correct CSV file ...")
+            save_path = './correctFiles'
+
+            isdir = os.path.isdir(save_path)
+            if(not isdir):
+                os.mkdir(save_path)
+
+            #completeName = os.path.join(save_path, correctFile)
+            completeName = save_path + "/" + correctFile
+
+            print(completeName)
+            df.exportCSV(fileName = completeName)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("funct", help="function to test")
+    #args = parser.parse_args()
     parser.add_argument("--csvfile", default="Course-Correlation-Matrix-v1.csv", help="csv file with grade data")
-    parser.add_argument("--oneCol", type=str, default="course1", help="the specified column for the function")
-    parser.add_argument("--majorList", type=list, default=[], help="a list of majors")
-    parser.add_argument("--classList", type=list, default=[], help="a list of classes")
-    parser.add_argument("--bool1", type=bool, default=True, help="boolean to use for functions")
-    parser.add_argument("--corr", type=float, default=0.4, help="boolean to use for functions")
-    parser.add_argument("--pVal", type=float, default=1, help="boolean to use for functions")
-    parser.add_argument("--toRepStr", type=str, default="", help="string to replace in the replace function")
-    parser.add_argument("--newStr", type=str, default="", help="string that will replace toRepStr")
-    parser.add_argument("-D", "--datadir", default="./", help="data directory")
-    parser.add_argument("-e", "--edges", type=int, default=10, help="minimum edge value")
+    
+    # Note: I used default values even for the ones that do not have defaults in the original,
+    #       may want to change it so whether it is optional is dependent on the functions in which they are used in
+    # parser.add_argument("--oneCol", type = str, default = "course1", help = "the specified column for the function")
+    
+    # if(args.funct == "printUniqueValuesInColumn" or args.funct == "filterColumnToValues" or args.funct == "substituteSubStrInColumn"):
+    parser.add_argument("--oneCol", type = str, default = "course1", help = "the specified column for the function")
+
+    # elif(args.funct == "filterColumnToValues"):
+    parser.add_argument("--valList", type = str, default = [], help = "a list of values")
+    
+    # elif(args.funct == "printFirstXRows"):
+        # used 0 as default rows, but need to check!
+    parser.add_argument("--rows", type = str, default = "0", help = "the number of rows to print")
+    
+    # elif(args.funct == "exportCSV" or args.funct == "chordGraphByMajor" or args.funct == "outputCliqueDistribution"):
+        # tried default = None, check if it works!
+    parser.add_argument("--fileName", type = str, default = None, help = "the name to set the exported CSV file to")
+    
+    # elif(args.funct == "filterToMultipleMajorsOrClasses"):
+    parser.add_argument("--majorList", type = list, default = [], help = "a list of majors")
+    
+    # elif(args.funct == "filterToMultipleMajorsOrClasses"):
+    parser.add_argument("--classList", type = list, default = [], help = "a list of classes")
+    
+    # elif(args.funct == "filterToMultipleMajorsOrClasses" or args.funct == "chordGraphByMajor" or args.funct == "outputCliqueDistribution"):
+    parser.add_argument("--bool1", type = bool, default = True, help = "Boolean 1 to use for functions")
+    
+    # elif(args.funct == "chordGraphByMajor" or args.funct == "outputCliqueDistribution"):
+    parser.add_argument("--bool2", type = bool, default = True, help = "Boolean 2 to use for functions")
+
+    # elif(args.funct == "outputCliqueDistribution"):
+    parser.add_argument("--logScale", type = bool, default = False, help = "Whether or not to output graph in Log 10 scale on the y-axis")
+
+    parser.add_argument("--exportPNG", type = bool, default = True, help = "Whether or not to export a PNG version of the graph")
+
+    # elif(args.funct == "chordGraphByMajor" or args.funct == "getNxGraph" or args.funct == "getCliques" or args.funct == "outputCliqueDistribution"):
+    parser.add_argument("--corr", type = float, default = 0.4, help = "Correlation value that will be compared against")
+    
+    # elif(args.funct == "chordGraphByMajor"):
+    parser.add_argument("--pVal", type = float, default = 1, help = "P value that will be compared against")
+    
+    # elif(args.funct == "chordGraphByMajor"):
+    parser.add_argument("--outputSize", type = int, default = 200, help = "Size (units unknown) of html graph to output")
+
+    # elif(args.funct == "chordGraphByMajor"):
+    parser.add_argument("--imageSize", type = int, default = 300, help = "Size (units unknown) of image of the graph to output")
+
+    # elif(args.funct == "substituteSubStrInColumn"):
+    parser.add_argument("--subString", type = str, default = "", help = "string to replace in the replace function")
+
+    parser.add_argument("--substitute", type = str, default = "", help = "string that will replace toRepStr")
+    
+    # elif(args.funct == "outputCliqueDistribution"):
+    parser.add_argument("--title", type = str, default = "Class Correlation Cliques", help = "Title displayed on the histogram")
+    
+    
+    parser.add_argument("-D", "--datadir", default = "./", help = "data directory")
+    '''
+    elif(args.funct == ""):
+        parser.add_argument("-e", "--edges", type = int, default = 10, help = "minimum edge value")
+    '''
     args = parser.parse_args()
     main(args)
 

@@ -61,7 +61,7 @@ class classCorrelationData:
   def getNumberOfClassesUsed(self):
     return self.df['course1'].nunique()
 
-# M: returns the unique values in the column 'column'
+  # M: returns the unique values in the column 'column'
   def printUniqueValuesInColumn(self, column):
     print(self.df[column].unique())
 
@@ -71,7 +71,7 @@ class classCorrelationData:
     """
     self.printUniqueValuesInColumn('course1')
 
-# M: gets the number of rows
+  # M: gets the number of rows
   def getEntryCount(self):
     return len(self.df.index)
 
@@ -102,6 +102,7 @@ class classCorrelationData:
     majors = {re.findall('\A\D+', course)[0] for course in courses}
     print(majors)
 
+  # TEST
   def filterColumnToValues(self, col, values = []):
     """Filters dataset to only include rows that contain any of the given values in the given column.
 
@@ -115,13 +116,13 @@ class classCorrelationData:
     
     self.printEntryCount()
 
-# M:  if all the elements in values array are strings:
-#       makes 'possibilities', lowercased elements in values array
-#       separated by '|'. Then, sets df equal to the specified 
-#       column(as str), with values conforming with possibilities(separated by '|')
-#       
-#       else, make the df equal to the specified column, checking 
-#       the values without changing case (idea: can make this not case sensitive maybe)
+    # M:  if all the elements in values array are strings:
+    #       makes 'possibilities', lowercased elements in values array
+    #       separated by '|'. Then, sets df equal to the specified 
+    #       column(as str), with values conforming with possibilities(separated by '|')
+    #       
+    #       else, make the df equal to the specified column, checking 
+    #       the values without changing case (idea: can make this not case sensitive maybe)
 
     if all([isinstance(x,str) for x in values]):
       lowered = [x.lower() for x in values]
@@ -130,10 +131,12 @@ class classCorrelationData:
       self.df = self.df.loc[loweredCol.str.contains(possibilities)]
     else:
       self.df = self.df.loc[np.in1d(self.df[col],values)]
-# M: changes original df to have integer indices starting from 0
+    
+    # M: changes original df to have integer indices starting from 0
     self.df.reset_index(inplace=True, drop=True)
     self.printEntryCount()
 
+  # Test
   def exportCSV(self, fileName = 'csvExport.csv'):
     """Export the current state of the dataset to a :obj:`.CSV` file.
     
@@ -143,6 +146,7 @@ class classCorrelationData:
     """
     self.df.to_csv(fileName, index=False)
 
+  # TEST
   def filterToMultipleMajorsOrClasses(self, majors = [], classes = [], twoWay = True):
     """Reduces the dataset to only include entries of certain classes and/or classes in certain majors. This function is 
     inclusive; if a class in 'classes' is not of a major defined in 'majors', the class will still be included, and 
@@ -163,6 +167,7 @@ class classCorrelationData:
       self.df = self.df.loc[((self.df['course1'].isin(classes)) | (self.df['course1'].apply(lambda course: re.findall('\A\D+', course)[0])).isin(majors)) | ((self.df['course2'].isin(classes)) | (self.df['course2'].apply(lambda course: re.findall('\A\D+', course)[0]).isin(majors)))]
     self.df.reset_index(inplace=True, drop=True)
 
+  # TEST
   def substituteSubStrInColumn(self, column, subString, substitute):
     """Replace a substring in a given column.
 
@@ -175,6 +180,7 @@ class classCorrelationData:
     self.convertColumnToString(column)
     self.df[column] = self.df[column].str.replace(subString, substitute)
 
+  # TEST
   def chordGraphByMajor(self, coefficient = 0.5, pval = 0.05, outputName = 'majorGraph', outputSize = 200, imageSize = 300, showGraph = True, outputImage = True):
     """Creates a chord graph between available majors through averaging and filtering both correlation coefficients and P-values. Outputs to an html file, PNG file, and saves the underlying data by default.
 
@@ -393,6 +399,7 @@ class classCorrelationData:
         graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
         export_png(graph, filename=outDir +fileName + '.png')
 
+  # TEST
   def makeMissingValuesNanInColumn(self, column):
     """Replaces the ' ' values in 'column' w nan
     """
@@ -400,6 +407,7 @@ class classCorrelationData:
       return
     self.df[column].replace(' ', np.nan, inplace=True)
 
+  # TEST
   def removeNanInColumn(self, column):
     """drops na in 'column' then resets the indices(changes original df)
     """
@@ -408,6 +416,7 @@ class classCorrelationData:
     self.df.dropna(subset=[column], inplace=True)
     self.df.reset_index(inplace = True, drop=True)
 
+  # TEST
   def dropMissingValuesInColumn(self, column):
     """Removes rows in the dataset which have missing data in the given column.
 

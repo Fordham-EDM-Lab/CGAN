@@ -3,7 +3,6 @@ from edmlib import gradeData
 from scipy.stats.stats import pearsonr
 import networkx as nx
 from edmlib.edmlib import *
-from edmlib.gradeData import gradeData
 from edmlib.classCorrelationData import classCorrelationData
 
 from edmlib.edmlib import edmApplication, outDir
@@ -50,23 +49,24 @@ otherClasses = ['Physics1501',
 # print(df.printClassesUsed())
 # print(df.getEntryCount())
 # df.printEntryCount()
-# print(df.printFirstXRows())
+# df.printFirstXRows(2)
 # print(df.printMajors())
 
 # print(df.filterColumnToValues("corr", [0, 1]))
 # print(df.exportCSV())
 
-# print(df.filterToMultipleMajorsOrClasses([], ["ComputerandInfoScience4001"], False))
+df.removeNanInColumn("course1")
+print(df.filterToMultipleMajorsOrClasses([], ["ComputerandInfoScience4001"], False))
 # print(df.getEntryCount()) # to check the remaining entry count after the filterToMultipleMajorsOrClasses function
 
 # print(df.substituteSubStrInColumn('course1', 'cool', 'drool'))
 # df.printUniqueValuesInColumn("course1") # to print the unique values after the substituteSubStrInColumn function
 
-df.dropMissingValuesInColumn("corr")
-df.dropMissingValuesInColumn("P-value")
-df.dropMissingValuesInColumn("course1")
-df.dropMissingValuesInColumn("course2")
-print(df.chordGraphByMajor(0.4, 1))
+# df.dropMissingValuesInColumn("corr")
+# df.dropMissingValuesInColumn("P-value")
+# df.dropMissingValuesInColumn("course1")
+# df.dropMissingValuesInColumn("course2")
+# print(df.chordGraphByMajor(0.4, 1))
 
 # Trying to test this - START
 # graph = df.getNxGraph(None)
