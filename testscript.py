@@ -1,8 +1,10 @@
 import unittest
 import filecmp
+import os
 from edmlib import *
 
-entries = 1000
+# inputFile is the datamart used for testing functions
+entries = 4000
 inputFile = 'sample/sample-datamart-' + str(entries) + '.csv'
 
 data = gradeData(inputFile)
@@ -26,11 +28,12 @@ class TestGradeData(unittest.TestCase):
         """
         exportFile = 'TempMatrix_' + str(entries) + '.csv'
         data.exportCorrelationsWithMinNSharedStudents(filename=exportFile)
-        #correctFile is the file path of the supposedly correct output
+        # correctFile is the file path of the supposedly correct output
         correctFile = '../CorrelationMatrix/Output Correlation Matrices/CorrelationOutput_' + str(entries) + '.csv'
         #correctFile = '../CorrelationMatrix/Output Correlation Matrices/CorrelationOutput_300.csv'
         testBool = filecmp.cmp(exportFile, correctFile, False)
         self.assertTrue(testBool)
+        os.remove(exportFile) # clean up the temporary export file
 
 
 
