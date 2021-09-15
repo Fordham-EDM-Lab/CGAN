@@ -208,6 +208,12 @@ class gradeDataHelper:
     Returns: list including correlation, p value, and length of normalized grades of students who took both A and B 
 
     """
+      #Remove missing values (THIS MAKES CODE RUN SLOWER)
+      #a = a.dropna(subset=[self.NORMALIZATION_COLUMN])
+      #b = b.dropna(subset=[self.NORMALIZATION_COLUMN])
+    # stop function if there is less than N students in a class (Filter to make the program run faster)
+    if (len(a) < nSharedStudents) or (len(b) < nSharedStudents):
+      return [math.nan, math.nan, math.nan]
     #norms is a DataFrame that includes data from a of students in b
     norms = a.loc[a[self.STUDENT_ID_COLUMN].isin(b[self.STUDENT_ID_COLUMN].values)]
     #Remove missing values
