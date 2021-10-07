@@ -9,6 +9,8 @@ from edmlib.edmlib import *
 #from edmlib.gradeData import gradeData
 from edmlib.classCorrelationData import classCorrelationData
 
+from shutil import copyfile # Since we use this only once, and it is inside a conditional, would it be better to place this within that conditional?
+
 import argparse
 import sys
 import os
@@ -20,37 +22,12 @@ import re
 start_time = time.time()
 #df = classCorrelationData('Course-Correlation-Matrix-v1.csv') #('/u/erdos/edmProject/final-datamart-6-7-19.csv')
 
-majorsToFilterTo = ['Computer and Info Science', 
-                    'Psychology']
-coreClasses = [ 'Philosophy1000',
-                'Theology1000',
-                'English1102',
-                'English1101',
-                'History1000',
-                'Theology3200',
-                'VisualArts1101',
-                'Physics1201',
-                'Chemistry1101']
-preMedClasses = ['BiologicalSciences1403',
-                 'BiologicalSciences1413',
-                 'BiologicalSciences1404',
-                 'BiologicalScience1414',
-                 'Chemistry1321',
-                 'Chemistry1331',
-                 'Chemistry1322',
-                 'Chemistry1332']
-otherClasses = ['Physics1501',
-                    'Physics1511',
-                    'Economics2140',
-                    'Mathematics1100',
-                    'Theatre1100',
-                    'Music1100']
-
 # I added rows into the excel for testing purposes - they are the rows with cool as course1
 # majorFiltered = df.df.copy()
 # majorFiltered['course1'] = majorFiltered['course1'].apply(lambda course: print(course))
 
 def main(args):
+    addedName = ""
     export = False
     df = classCorrelationData(os.path.join(args.datadir, args.csvfile))
     
@@ -77,6 +54,10 @@ def main(args):
         df.removeNanInColumn(args.oneCol) #("course1")
 
         print(df.filterColumnToValues(args.oneCol, args.valList)) #("corr", [0, 1]))
+        # addedName += "oneCol" + args.oneCol + "valList"
+        # for i in range(args.valList.len):
+        #     addedName += args.valList[i] + "-"
+        
         export = True
         #df.exportCSV(fileName = "currFilterColumnToValues.csv")
     
@@ -105,6 +86,8 @@ def main(args):
         df.dropMissingValuesInColumn("course1")
         df.dropMissingValuesInColumn("course2")
         print(df.chordGraphByMajor(args.corr, args.pVal, args.fileName, args.outputSize, args.imageSize, args.bool1, args.bool2)) #(0.4, 1)
+        
+        export = True
         # NOTE: This graph csv is already exported within the function :)
     # Trying to test this - START
     # graph = df.getNxGraph(None)
@@ -146,6 +129,7 @@ def main(args):
         df.convertColumnToString(args.oneCol) #("course1")
     else:
         print("Error: Please Input Valid Correlation Data Function Name")
+        return
 
     # if export is True, we check if the CSV correct file is already made
     # if the CSV correct file exists:
@@ -154,13 +138,22 @@ def main(args):
     # else:
     #   we make the output from this run equal to the CSV correct file
     if(export):
-        correctFile = "correct" + args.funct.capitalize() + ".csv"
+        if(args.funct == "chordGraphByMajor"):
+            correctFile = "correctChordGraphByMajor" + args.fileName.capitalize() + ".csv" # addedName + ".csv"
+        else:
+            correctFile = "correct" + args.funct.capitalize() + ".csv" # addedName + ".csv"
         # simplify this (for example, I used './correctFiles' a few times, so I gotta make that a variable outside of the else)
-        # also
+        # 
+        # also add an ask, where if there is a correct file already, we have the option to either replace it or make a copy of 
+        # our current output + make an 'are you sure you want to REPLACE? (this cannot be undone)' after the replace option
 
-        if(os.path.isdir('./correctFiles') and os.path.isfile('./correctFiles' + "/" + correctFile)):
-            exportFile = "curr" + args.funct.capitalize() + ".csv"
-            correctFile = "correct" + args.funct.capitalize() + ".csv"
+        correctDir = "./correctFiles"
+
+        if(os.path.isdir(correctDir) and os.path.isfile(correctDir + "/" + correctFile)):
+            if(args.funct == "chordGraphByMajor"):
+                exportFile = "currChordGraphByMajor" + args.fileName.capitalize() + ".csv" # addedName + ".csv"
+            else:
+                exportFile = "curr" + args.funct.capitalize() + ".csv" # addedName + ".csv"
             save_path = './outputFiles'
             
             isdir = os.path.isdir(save_path)
@@ -169,28 +162,36 @@ def main(args):
             
             completeName = save_path + "/" + exportFile
 
-            df.exportCSV(fileName = completeName)
+            if(args.funct == "chordGraphByMajor"):
+                # copy the file made in the 'exports' folder and put that into outputFiles (I recommend using shututil)
+                copyfile(args.fileName + '.csv', completeName)
+            else:
+                df.exportCSV(fileName = completeName)
             # check this file against file w fileName "check" + args.funct.capitalize() + ".csv"
-            testBool = filecmp.cmp(completeName, './correctFiles' + "/" + correctFile, False)
+            testBool = filecmp.cmp(completeName, correctDir + "/" + correctFile, False)
             
             if testBool:
                 print("output matches correct file")
             else:
                 print("Error: this output does not match the correct file output")
+            return
         
+
+        print("No file to check against ... making this output the correct CSV file ...")
+
+        isdir = os.path.isdir(correctDir)
+        if(not isdir):
+            os.mkdir(correctDir)
+
+        #completeName = os.path.join(save_path, correctFile)
+        completeName = correctDir + "/" + correctFile
+
+        if(args.funct == "chordGraphByMajor"):
+            # copy the file in exports folder and save as completeName
+            copyfile(args.fileName + '.csv', completeName)
         else:
-            print("No file to check against ... making this output the correct CSV file ...")
-            save_path = './correctFiles'
-
-            isdir = os.path.isdir(save_path)
-            if(not isdir):
-                os.mkdir(save_path)
-
-            #completeName = os.path.join(save_path, correctFile)
-            completeName = save_path + "/" + correctFile
-
-            print(completeName)
             df.exportCSV(fileName = completeName)
+        print("Saved to " + completeName)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -214,7 +215,7 @@ if __name__ == '__main__':
     
     # elif(args.funct == "exportCSV" or args.funct == "chordGraphByMajor" or args.funct == "outputCliqueDistribution"):
         # tried default = None, check if it works!
-    parser.add_argument("--fileName", type = str, default = None, help = "the name to set the exported CSV file to")
+    parser.add_argument("--fileName", type = str, default = "majorGraph", help = "the name to set the exported CSV file to")
     
     # elif(args.funct == "filterToMultipleMajorsOrClasses"):
     parser.add_argument("--majorList", type = list, default = [], help = "a list of majors")

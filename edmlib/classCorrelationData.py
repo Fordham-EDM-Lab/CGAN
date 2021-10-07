@@ -299,7 +299,10 @@ class classCorrelationData:
     # M: changes size to imageSize then saves it to outDir +outputName + '.png'
     if outputImage:
       hv.output(size=imageSize)
-      export_png(hv.render(chord), filename=outDir +outputName + '.png')
+      try:
+        export_png(hv.render(chord), filename=outDir +outputName + '.png')
+      except RuntimeError:
+        print("Runtime error in chordGraphByMajors in line with export_png(hv.render(chord), filename=outDir +outputName + '.png')")
     # M: changes size to outputSize
     hv.output(size=outputSize)
 
