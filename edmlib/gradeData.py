@@ -790,6 +790,12 @@ class gradeData(gradeDataHelper):
       tim = time.time()
       #Cycle through each class m in classes
       for m in classes:
+        # skip pair if there is less than N students in a class (Filter to make the program run faster)
+        if (len(d["df{0}".format(m)]) < nSharedStudents) or (len(d["df{0}".format(n)]) < nSharedStudents):
+          continue
+        # Skip all pairs of identical classes
+        if (m == n):
+          continue
         #Checks to make sure this is a new pair of classes
         if m not in classesProcessed:
           #If not directed, use corAlg to generate correlation r, p-value p, and number of students c, then append them all to f
@@ -799,8 +805,6 @@ class gradeData(gradeDataHelper):
             r, p, c = result[0], result[1], result[2]
             if not math.isnan(r):
               f.append((n, m, r, p, c))
-              if n != m:
-                f.append((m, n, r, p, c))
           #If directed, use corrAlgDirected to generate a lot of data and add it to f
           else:
             classesProcessed.add(n)
