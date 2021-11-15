@@ -472,6 +472,22 @@ class gradeDataHelper:
     self.filterByGpaDeviationMoreThan(0.001)
     self.df[self.NORMALIZATION_COLUMN] = (self.df[self.FINAL_GRADE_COLUMN].values - self.df[self.GPA_MEAN_COLUMN].values) / self.df[self.GPA_STDDEV_COLUMN].values
 
+  def exportNormalizationColumn(self, fileName = 'normalized.csv'):
+    """Function to export a csv file that is a view of the original DataFrame after being normalized
+    
+    Args: fileName: name of output file
+
+    Return: export csv file with normalized final grade
+    """
+    self.getNormalizationColumn()
+    # select column
+    view = self.df[[self.STUDENT_ID_COLUMN, self.CLASS_ID_AND_TERM_COLUMN, self.FINAL_GRADE_COLUMN, \
+                    self.GPA_MEAN_COLUMN, self.NORMALIZATION_COLUMN]]
+    # export to csv
+    if not fileName.endswith('.csv'):
+      fileName = "".join((fileName, '.csv'))
+    view.to_csv(fileName, index=False)
+
   def getDictOfStudentGPAs(self, getStdDev = False):
     self.dropNullAndConvertToNumeric(self.FINAL_GRADE_COLUMN)
     if self.CLASS_CREDITS_COLUMN in self.df.columns:
@@ -486,7 +502,8 @@ class gradeDataHelper:
       gpas = dict(zip(sums[self.STUDENT_ID_COLUMN], sums['gpa']))
       if getStdDev:
         # temp2.apply(lambda x: print(x))
-        sums['stddev'] = temp2.apply(lambda x: np.average((x[self.FINAL_GRADE_COLUMN]-gpas[x[self.STUDENT_ID_COLUMN].iloc[0]])**2, weights=x[self.CLASS_CREDITS_COLUMN]))
+        sums['stddev'] = temp2.apply(lambda x: np.average((x[self.FINAL_GRADE_COLUMN]- \
+                        gpas[x[self.STUDENT_ID_COLUMN].iloc[0]])**2, weights=x[self.CLASS_CREDITS_COLUMN]))
         stdDevs = dict(zip(sums[self.STUDENT_ID_COLUMN], sums['stddev']))
         # np.average(subEntries['normBenefit'].astype(float), weights=subEntries[weighting].astype(float))
       # print(sums)
@@ -497,7 +514,7 @@ class gradeDataHelper:
       gpas = dict(zip(means[self.STUDENT_ID_COLUMN], means[self.FINAL_GRADE_COLUMN]))
       if getStdDev:
         gpas['stds'] = temp2.apply(lambda x: np.average((x[self.FINAL_GRADE_COLUMN]-gpas[x[self.STUDENT_ID_COLUMN].iloc[0]])**2))
-        stdDevs = dict(zip(stds[self.STUDENT_ID_COLUMN], gpas['stds']))
+        stdDevs = dict(zip(temp2[self.STUDENT_ID_COLUMN], gpas['stds']))
     
     if getStdDev:
       return (gpas, stdDevs)
@@ -548,6 +565,22 @@ class gradeDataHelper:
       except ZeroDivisionError:
         return math.nan
     self.df[self.STUDENT_CLASS_NORMALIZATION_COLUMN] = temp.apply(rowOp, axis = 1)
+
+  def exportCompoundNormalization(self, fileName = 'compoundNormalized.csv'):
+    """Function to export a csv file that is a view of the original DataFrame after being normalized
+    
+    Args: fileName: name of output file
+
+    Return: export csv file with normalized final grade
+    """
+    self.getNormalizationByStudentByClass()
+    # select column
+    view = self.df[[self.STUDENT_ID_COLUMN, self.CLASS_ID_AND_TERM_COLUMN, self.FINAL_GRADE_COLUMN, \
+                    self.GPA_MEAN_COLUMN, self.NORMALIZATION_COLUMN]]
+    # export to csv
+    if not fileName.endswith('.csv'):
+      fileName = "".join((fileName, '.csv'))
+    view.to_csv(fileName, index=False)
 
   def getGradesByYear(self):
     if self.NORMALIZATION_COLUMN not in self.df.columns:

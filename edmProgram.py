@@ -7,6 +7,7 @@ from PyQt5.QtGui import *
 # from PyQt5.QtWebEngineWidgets import *
 import pandas as pd
 import numpy as np
+from param import Filename
 import edmlib
 from edmlib import *
 class MyWindow(QMainWindow):
@@ -143,15 +144,26 @@ class MyWindow(QMainWindow):
         # print(te - ts)
 
     def setGeneralButtons(self):
+        """
+          Set up the GUI upper menu bars
+        """
         self.menubar.clear()
         self.menubar = self.menuBar()
+        # File menu
         self.fileMenu = self.menubar.addMenu('File')
+        # Each block is one button of File menu
         openFile = QAction('Open', self)
         openFile.triggered.connect(self.on_pushButtonLoad_clicked)
         self.fileMenu.addAction(openFile)
+
         graphOpen = QAction('Open Graph', self)
         graphOpen.triggered.connect(self.openGraph)
         self.fileMenu.addAction(graphOpen)
+
+        setColumns = QAction('Set Columns', self)
+        setColumns.triggered.connect(self.designateColumns)
+        self.fileMenu.addAction(setColumns)
+
         saveAs = QAction('Save As', self)
         saveAs.triggered.connect(self.on_pushButtonWrite_clicked)
         self.fileMenu.addAction(saveAs)
@@ -159,94 +171,127 @@ class MyWindow(QMainWindow):
         self.menubar.setNativeMenuBar(False)
         self.setMenuBar(self.menubar)
 
+        # For non correlation matrix file (e.g. original dataset)
         if self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)) and not self.correlationFile:
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
-            self.correlationMenu = self.menubar.addMenu('Correlations')
+            # Export stats menu
+            self.exportMenu = self.menubar.addMenu('Export Stats')
+            # Each block is one button of the Stats menu
             exportCorr = QAction('Export Class Correlations', self)
             exportCorr.triggered.connect(self.exportCorrelations)
-            self.correlationMenu.addAction(exportCorr)
+            self.exportMenu.addAction(exportCorr)
+
             exportGPAS = QAction('Export GPA Distribution', self)
             exportGPAS.triggered.connect(self.exportGPADistribution)
-            self.correlationMenu.addAction(exportGPAS)
+            self.exportMenu.addAction(exportGPAS)
+
             exportPairGrades = QAction('Export Class Pair Grades', self)
             exportPairGrades.triggered.connect(self.pairGraph)
-            self.correlationMenu.addAction(exportPairGrades)
+            self.exportMenu.addAction(exportPairGrades)
+
             sankeyTrackNew = QAction('Export Course Track Graph', self)
             sankeyTrackNew.triggered.connect(self.makeSankeyTrackNew)
-            self.correlationMenu.addAction(sankeyTrackNew)
+            self.exportMenu.addAction(sankeyTrackNew)
+
             sankeyTrack = QAction('Export Course Track Graph (alternate)', self)
             sankeyTrack.triggered.connect(self.makeSankeyTrack)
-            self.correlationMenu.addAction(sankeyTrack)
+            self.exportMenu.addAction(sankeyTrack)
+
             sankeyTrack2 = QAction('Export Track Graph (Experimental)', self)
             sankeyTrack2.triggered.connect(self.makeSankeyTrackAdvanced)
-            self.correlationMenu.addAction(sankeyTrack2)
+            self.exportMenu.addAction(sankeyTrack2)
+
+            currentState = QAction('Export Current State of the DataFrame', self)
+            # currentState.triggered.connect(self.exportCSV)
+            self.exportMenu.addAction(currentState)
+
+            # Filter menu
             self.filterMenu = self.menubar.addMenu('Filters')
+            # Each block is one button of the Filter menu
             byClassOrMajor = QAction('Filter by Classes / Class Depts', self)
             byClassOrMajor.triggered.connect(self.filterByClassOrMajor)
             self.filterMenu.addAction(byClassOrMajor)
+
             byStdntMajor = QAction('Filter by Student Majors', self)
             byStdntMajor.triggered.connect(self.filterByStudentMajor)
             self.filterMenu.addAction(byStdntMajor)
+
             byGPADev = QAction('Filter Classes by Grade Deviation', self)
             byGPADev.triggered.connect(self.filterGPADeviation)
             self.filterMenu.addAction(byGPADev)
+
+            # Calculation menu
             self.calcMenu = self.menubar.addMenu('Calculations')
+            # Each block is one button of the Calculation menu
             gpaMean = QAction('Calculate Class Grade Means', self)
             gpaMean.triggered.connect(self.gpaMeanCol)
             self.calcMenu.addAction(gpaMean)
+
             gpaDev = QAction('Calculate Class Grade Std Deviations', self)
             gpaDev.triggered.connect(self.gpaDevCol)
             self.calcMenu.addAction(gpaDev)
+
             norms = QAction('Calculate Grade Normalizations', self)
             norms.triggered.connect(self.normCol)
             self.calcMenu.addAction(norms)
+
             norms2 = QAction('Calculate Normalization by Student GPA', self)
             norms2.triggered.connect(self.normByGPACol)
             self.calcMenu.addAction(norms2)
+
             norms3 = QAction('Calculate Normalization by Student by Class', self)
             norms3.triggered.connect(self.normByStudByClassCol)
             self.calcMenu.addAction(norms3)
+
             instructorEffect = QAction('Calculate Instructor Effectiveness', self)
             instructorEffect.triggered.connect(self.instructorEffectiveness)
             self.calcMenu.addAction(instructorEffect)
+
             instructorEffectAll = QAction('Calculate Instructor Effectiveness (All)', self)
             instructorEffectAll.triggered.connect(self.instructorEffectivenessAll)
             self.calcMenu.addAction(instructorEffectAll)
+
             ttest = QAction('Calculate t-test', self)
             ttest.triggered.connect(self.ttestCalc)
             self.calcMenu.addAction(ttest)
-            setColumns = QAction('Set Columns', self)
-            setColumns.triggered.connect(self.designateColumns)
-            self.menubar.addAction(setColumns)
-            predict = QAction('Grade Predict', self)
-            predict.triggered.connect(self.gradePredict)
-            self.menubar.addAction(predict)
 
+            predict = QAction('Calculate Grade Predictions', self)
+            predict.triggered.connect(self.gradePredict)
+            self.calcMenu.addAction(predict)
+
+            stats = QAction('Calculate Unique Values', self)
+            stats.triggered.connect(self.getStats)
+            self.calcMenu.addAction(stats)
+        # For correlation matrix file
         elif self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)):
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
             self.correlationMenu = self.menubar.addMenu('Correlations')
+
             majorChord = QAction('Export Chord Graph by Major', self)
             majorChord.triggered.connect(self.exportMajorChord)
             self.correlationMenu.addAction(majorChord)
+
             cliqueHisto = QAction('Export Clique Histogram', self)
             cliqueHisto.triggered.connect(self.exportCliqueHisto)
             self.correlationMenu.addAction(cliqueHisto)
+
             self.filterMenu = self.menubar.addMenu('Filters')
+
             byClassOrMajor = QAction('Filter to Classes / Class Depts', self)
             byClassOrMajor.triggered.connect(self.filterByClassOrMajorCorr)
             self.filterMenu.addAction(byClassOrMajor)
+
             self.calcMenu = self.menubar.addMenu('Calculations')
+
             ttest = QAction('Calculate t-test', self)
             ttest.triggered.connect(self.ttestCalc)
             self.calcMenu.addAction(ttest)
         if self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)):
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
-            stats = QAction('Show Stats', self)
-            stats.triggered.connect(self.getStats)
-            self.menubar.addAction(stats)
             getOriginal = QAction('Reload Original File', self)
             getOriginal.triggered.connect(self.originalReload)
             self.fileMenu.addAction(getOriginal)
+
             setExports = QAction('Set User Export Directory', self)
             setExports.triggered.connect(self.setExportDir)
             self.fileMenu.addAction(setExports)
@@ -1014,7 +1059,6 @@ class MyWindow(QMainWindow):
 
         e.accept()
 
-
     @QtCore.pyqtSlot()
     def exportGPADistribution(self):
         dlg = gpaDistributionInput(self)
@@ -1027,6 +1071,7 @@ class MyWindow(QMainWindow):
             except Exception as e: 
               print(e)
               pass
+
     def gpaDone(self, name):
       def done():
         self.pic = PaintPicture(self, name)
@@ -1044,6 +1089,15 @@ class MyWindow(QMainWindow):
             except Exception as e: 
               print(e)
               pass
+
+    @QtCore.pyqtSlot()
+    def exportCSV(self):
+        try:
+            worker = Worker(self.grades.exportCSV,filename='csvExport.csv')
+            self.threadpool.start(worker)
+        except Exception as e: 
+          print(e)
+          pass
 
     @QtCore.pyqtSlot()
     def exportCorrelations(self, arg = None):
@@ -1156,7 +1210,6 @@ class MyWindow(QMainWindow):
           self.settings.setValue("StudentID", self.columnSelected)
           print('Student ID column set to ' + self.columnSelected)
 
-
     @QtCore.pyqtSlot()
     def designateStdntMjr(self, arg = None):
       if self.grades and arg:
@@ -1198,7 +1251,6 @@ class MyWindow(QMainWindow):
           self.grades.CLASS_CODE_COLUMN = self.columnSelected
           self.settings.setValue("ClassCode", self.columnSelected)
           print('Class Code column set to ' + self.columnSelected)
-
 
     @QtCore.pyqtSlot()
     def designateTerms(self, arg = None):
@@ -1772,6 +1824,7 @@ class filterStudentMajorDialog(QDialog):
 
     def getInputs(self):
             return (self.first.text().split(','))
+
 class csvPreview(QDialog):
     def __init__(self, parent = None, data=None):
         super().__init__(parent)
