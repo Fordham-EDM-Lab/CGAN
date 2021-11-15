@@ -314,11 +314,11 @@ class classCorrelationData:
         minCorr (:obj:`float`, optional): Minimum correlation between classes for an edge to be included on the graph. Should be in the 0.0-1.0 range. Defaults to :obj:`None` (or do not filter).
 
     """
-# M:  if no filter, return graph containing edgelist correlations btwn course1 and course2
+    # M:  if no filter, return graph containing edgelist correlations btwn course1 and course2
     if minCorr is None:
       print('minCorr none')
       return nx.from_pandas_edgelist(self.df, 'course1', 'course2', 'corr')
-# M: filters out those with correlation < minCorr, then return graph containing edgelist correlations btwn course1 and course2
+    # M: filters out those with correlation < minCorr, then return graph containing edgelist correlations btwn course1 and course2
     self.df['corr'] = pd.to_numeric(self.df['corr'])
     filtered = self.df.loc[self.df['corr'] >= minCorr]
     return nx.from_pandas_edgelist(filtered, 'course1', 'course2', 'corr')
@@ -331,8 +331,8 @@ class classCorrelationData:
         minSize (:obj:`int`, optional): Minimum number of nodes to look for in a clique. Default is 2.
 
     """
-# M:  First, gets graph with minCorr, then finds a list of cliques,
-#     and finally, returns a sorted list of cliques of size >= minSize
+    # M:  First, gets graph with minCorr, then finds a list of cliques,
+    #     and finally, returns a sorted list of cliques of size >= minSize
     graph = self.getNxGraph(minCorr)
     cliques = list(nx.find_cliques(graph))
     return sorted(filter(lambda clique: len(clique) >= minSize, cliques))
@@ -349,12 +349,12 @@ class classCorrelationData:
         logScale (:obj:`bool`, optional): Whether or not to output graph in Log 10 scale on the y-axis. Defaults to :obj:`False`.
 
     """
-# M:  Gets a list of cliques, then the largest clique length
+    # M:  Gets a list of cliques, then the largest clique length
     cliques = self.getCliques(minCorr = minCorr)
     largestClique = len(max(cliques, key = len))
 
-# M:  makes a 'weight' array: contains counts of cliques of every size from 2 to 'largestClique'
-#     (also includes count of smaller sub-cliques of larger cliques if 'countDuplicates' is true)
+    # M:  makes a 'weight' array: contains counts of cliques of every size from 2 to 'largestClique'
+    #     (also includes count of smaller sub-cliques of larger cliques if 'countDuplicates' is true)
     weight = []
     for k in range(2, largestClique+1):
       count = 0
@@ -393,8 +393,8 @@ class classCorrelationData:
       output_file(outDir +fileName + '.html', mode='inline')
       save(graph)
       show(graph)
-# JH: Use exportPng=True to get rid of the global variable.
-#      if not edmApplication:
+    # JH: Use exportPng=True to get rid of the global variable.
+    #      if not edmApplication:
       # M: png version
       if exportPNG:
         histo.opts(toolbar=None)
@@ -446,8 +446,8 @@ class classCorrelationData:
         QUESTION: WHAT IS edmlib.edmApplication?
     """
     if column not in self.df.columns:
-  # JH: Should this error be here or can we use two separate decorations?
-      if edmlib.edmApplication:
+    # JH: Should this error be here or can we use two separate decorations?
+      if edmApplication:
         print("Error: required column '" + column + "' not present in dataset. Fix by right clicking / setting columns.")
       else:
         print("Error: required column '" + column + "' not present in dataset. Fix or rename with the 'defineWorkingColumns' function.")

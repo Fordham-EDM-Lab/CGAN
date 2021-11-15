@@ -227,8 +227,8 @@ def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', s
     output_file(outDir +fileName + '.html', mode='inline')
     save(graph)
     show(graph)
-# JH: Adds some specific display components when not in a graphical program.
-# JH: Consider a separate function for the two cases.
+  # JH: Adds some specific display components when not in a graphical program.
+  # JH: Consider a separate function for the two cases.
     if not edmApplication:
       hv.output(size=300)
       histo.opts(toolbar=None)
@@ -248,7 +248,7 @@ def seriesToHistogram(data, fileName = 'histogram', graphTitle='Distribution', s
     output_file(outDir +fileName + '.html', mode='inline')
     save(graph)
     show(graph)
-# JH: Consider a bool exportPng=True when calling from outside edmAppliation
+  # JH: Consider a bool exportPng=True when calling from outside edmAppliation
     if not edmApplication:
       hv.output(size=300)
       bar.opts(toolbar=None)
