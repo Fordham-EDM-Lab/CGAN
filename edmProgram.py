@@ -1092,12 +1092,16 @@ class MyWindow(QMainWindow):
 
     @QtCore.pyqtSlot()
     def exportCSV(self):
-        try:
-            worker = Worker(self.grades.exportCSV)
-            self.threadpool.start(worker)
-        except Exception as e: 
-          print(e)
-          pass
+        dlg = getFilename(self)
+        dlg.setWindowTitle("Export Current State of DataFrame") 
+        if dlg.exec():
+            try:
+                fileNm = dlg.getInputs()
+                worker = Worker(self.grades.exportCSV, fileName = fileNm)
+                self.threadpool.start(worker)
+            except Exception as e: 
+              print(e)
+              pass
 
     @QtCore.pyqtSlot()
     def exportCorrelations(self, arg = None):
@@ -1595,6 +1599,26 @@ class ttestDialog(QDialog):
     def getInputs(self):
         return [x.currentText() for x in self.combos]
 
+class getFilename(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.first = QLineEdit(self)
+        self.first.setText('csvExport')
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+
+        layout = QFormLayout(self)
+        layout.addRow("Output CSV file name: ", self.first)
+
+        layout.addWidget(buttonBox)
+
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+
+    def getInputs(self):
+        return (self.first.text())
+
 class getCorrDialogue(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1701,8 +1725,6 @@ class filterNumsDialogue(QDialog):
     def getInputs(self):
         check = lambda x : x[0].value() if x[1].isChecked() else None           
         return (check([self.first, self.firstBox]), check([self.second, self.secondBox]))
-
-
 
 class roundDialogue(QDialog):
     def __init__(self, parent=None):
@@ -2482,7 +2504,6 @@ class WorkerSignals(QObject):
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
     progress = pyqtSignal(int)
-
 
 class Worker(QRunnable):
     '''
