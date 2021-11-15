@@ -1,4 +1,4 @@
-import csv, sys, os, io, getpass, webbrowser, inspect, time
+import csv, sys, os, io, getpass, webbrowser, inspect, time, traceback
 import PyQt5
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import *
@@ -171,7 +171,7 @@ class MyWindow(QMainWindow):
         self.menubar.setNativeMenuBar(False)
         self.setMenuBar(self.menubar)
 
-        # For non correlation matrix file (e.g. original dataset)
+        # Menu for non correlation matrix file (e.g. original dataset)
         if self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)) and not self.correlationFile:
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
             # Export stats menu
@@ -202,7 +202,7 @@ class MyWindow(QMainWindow):
             self.exportMenu.addAction(sankeyTrack2)
 
             currentState = QAction('Export Current State of the DataFrame', self)
-            # currentState.triggered.connect(self.exportCSV)
+            currentState.triggered.connect(self.exportCSV)
             self.exportMenu.addAction(currentState)
 
             # Filter menu
@@ -262,7 +262,7 @@ class MyWindow(QMainWindow):
             stats = QAction('Calculate Unique Values', self)
             stats.triggered.connect(self.getStats)
             self.calcMenu.addAction(stats)
-        # For correlation matrix file
+        # Menu for correlation matrix file
         elif self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)):
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
             self.correlationMenu = self.menubar.addMenu('Correlations')
@@ -1093,7 +1093,7 @@ class MyWindow(QMainWindow):
     @QtCore.pyqtSlot()
     def exportCSV(self):
         try:
-            worker = Worker(self.grades.exportCSV,filename='csvExport.csv')
+            worker = Worker(self.grades.exportCSV)
             self.threadpool.start(worker)
         except Exception as e: 
           print(e)
