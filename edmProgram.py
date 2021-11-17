@@ -1,4 +1,5 @@
-import csv, sys, os, io, getpass, webbrowser, inspect, time, traceback
+import csv, sys, os, io, getpass, webbrowser, traceback
+#import inspect, time
 import PyQt5
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import *
