@@ -176,91 +176,91 @@ class MyWindow(QMainWindow):
         if self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None)) and not self.correlationFile:
           if os.path.isfile(self.settings.value(getpass.getuser()+"lastFile", self.settings.value("lastFile", None))):
             # Export stats menu
-            self.exportMenu = self.menubar.addMenu('Export Stats')
+            self.exportMenu = self.menubar.addMenu('Export')
             # Each block is one button of the Stats menu
-            exportCorr = QAction('Export Class Correlations', self)
+            exportCorr = QAction('Class Correlations', self)
             exportCorr.triggered.connect(self.exportCorrelations)
             self.exportMenu.addAction(exportCorr)
 
-            exportGPAS = QAction('Export GPA Distribution', self)
+            exportGPAS = QAction('GPA Distribution', self)
             exportGPAS.triggered.connect(self.exportGPADistribution)
             self.exportMenu.addAction(exportGPAS)
 
-            exportPairGrades = QAction('Export Class Pair Grades', self)
+            exportPairGrades = QAction('Class Pair Grades', self)
             exportPairGrades.triggered.connect(self.pairGraph)
             self.exportMenu.addAction(exportPairGrades)
 
-            sankeyTrackNew = QAction('Export Course Track Graph', self)
+            sankeyTrackNew = QAction('Course Track Graph', self)
             sankeyTrackNew.triggered.connect(self.makeSankeyTrackNew)
             self.exportMenu.addAction(sankeyTrackNew)
 
-            sankeyTrack = QAction('Export Course Track Graph (alternate)', self)
+            sankeyTrack = QAction('Course Track Graph (alternate)', self)
             sankeyTrack.triggered.connect(self.makeSankeyTrack)
             self.exportMenu.addAction(sankeyTrack)
 
-            sankeyTrack2 = QAction('Export Track Graph (Experimental)', self)
+            sankeyTrack2 = QAction('Track Graph (Experimental)', self)
             sankeyTrack2.triggered.connect(self.makeSankeyTrackAdvanced)
             self.exportMenu.addAction(sankeyTrack2)
 
-            currentState = QAction('Export Current State of the DataFrame', self)
+            currentState = QAction('Current State of the DataFrame', self)
             currentState.triggered.connect(self.exportCSV)
             self.exportMenu.addAction(currentState)
 
             # Filter menu
             self.filterMenu = self.menubar.addMenu('Filters')
             # Each block is one button of the Filter menu
-            byClassOrMajor = QAction('Filter by Classes / Class Depts', self)
+            byClassOrMajor = QAction('by Classes / Class Depts', self)
             byClassOrMajor.triggered.connect(self.filterByClassOrMajor)
             self.filterMenu.addAction(byClassOrMajor)
 
-            byStdntMajor = QAction('Filter by Student Majors', self)
+            byStdntMajor = QAction('by Student Majors', self)
             byStdntMajor.triggered.connect(self.filterByStudentMajor)
             self.filterMenu.addAction(byStdntMajor)
 
-            byGPADev = QAction('Filter Classes by Grade Deviation', self)
+            byGPADev = QAction('Classes by Grade Deviation', self)
             byGPADev.triggered.connect(self.filterGPADeviation)
             self.filterMenu.addAction(byGPADev)
 
             # Calculation menu
             self.calcMenu = self.menubar.addMenu('Calculations')
             # Each block is one button of the Calculation menu
-            gpaMean = QAction('Calculate Class Grade Means', self)
+            gpaMean = QAction('Class Grade Means', self)
             gpaMean.triggered.connect(self.gpaMeanCol)
             self.calcMenu.addAction(gpaMean)
 
-            gpaDev = QAction('Calculate Class Grade Std Deviations', self)
+            gpaDev = QAction('Class Grade Std Deviations', self)
             gpaDev.triggered.connect(self.gpaDevCol)
             self.calcMenu.addAction(gpaDev)
 
-            norms = QAction('Calculate Grade Normalizations', self)
+            norms = QAction('Grade Normalizations', self)
             norms.triggered.connect(self.normCol)
             self.calcMenu.addAction(norms)
 
-            norms2 = QAction('Calculate Normalization by Student GPA', self)
+            norms2 = QAction('Normalization by Student GPA', self)
             norms2.triggered.connect(self.normByGPACol)
             self.calcMenu.addAction(norms2)
 
-            norms3 = QAction('Calculate Normalization by Student by Class', self)
+            norms3 = QAction('Normalization by Student by Class', self)
             norms3.triggered.connect(self.normByStudByClassCol)
             self.calcMenu.addAction(norms3)
 
-            instructorEffect = QAction('Calculate Instructor Effectiveness', self)
+            instructorEffect = QAction('Instructor Effectiveness', self)
             instructorEffect.triggered.connect(self.instructorEffectiveness)
             self.calcMenu.addAction(instructorEffect)
 
-            instructorEffectAll = QAction('Calculate Instructor Effectiveness (All)', self)
+            instructorEffectAll = QAction('Instructor Effectiveness (All)', self)
             instructorEffectAll.triggered.connect(self.instructorEffectivenessAll)
             self.calcMenu.addAction(instructorEffectAll)
 
-            ttest = QAction('Calculate t-test', self)
+            ttest = QAction('t-test', self)
             ttest.triggered.connect(self.ttestCalc)
             self.calcMenu.addAction(ttest)
 
-            predict = QAction('Calculate Grade Predictions', self)
+            predict = QAction('Grade Predictions', self)
             predict.triggered.connect(self.gradePredict)
             self.calcMenu.addAction(predict)
 
-            stats = QAction('Calculate Unique Values', self)
+            stats = QAction('Unique Values', self)
             stats.triggered.connect(self.getStats)
             self.calcMenu.addAction(stats)
         # Menu for correlation matrix file
