@@ -32,8 +32,6 @@ class gradeData(gradeDataHelper):
         sourceFile (:obj:`str`): Name of source .CSV file with grade data (optional).
 
   """
-  ######## Variables #########
-
   ######## Methods #########
   def __init__(self,sourceFileOrDataFrame,copyDataFrame=True):
     """Class constructor, creates an instance of the class given a .CSV file or pandas dataframe.
@@ -112,6 +110,39 @@ class gradeData(gradeDataHelper):
         graph = hv.render(histo)
         graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
         export_png(graph, filename=outDir +fileName + '.png')
+
+  def exportCoursesByStudents(self, sectionLevel = False, fileName = 'courses.csv'):
+    """Export csv file containing the number of students in each course
+    Args:
+        sectionLevel (:obj:`bool`): whether to use unique section ID (or CRN) to identify unique classes
+        fileName (:obj:`str`): name of export file
+    """
+    if sectionLevel:
+      temp = self.df.loc[:,[self.CLASS_ID_COLUMN, self.CLASS_DEPT_COLUMN, self.CLASS_NUMBER_COLUMN]]
+    else:
+      temp = self.df.loc[:,[self.CLASS_DEPT_COLUMN, self.CLASS_NUMBER_COLUMN]]
+    vals = dict(temp.value_counts()) # count class ID (CRN)
+    vals = {k: v for k, v in sorted(vals.items(), key=lambda item: item[1], reverse=True)} # sort frequency table in descending order
+    studentsPerCourse = pd.DataFrame(vals.items(), columns=['Course', '# of students'])
+    # export to csv file
+    if not fileName.endswith('.csv'):
+      fileName = "".join((fileName, '.csv'))
+    studentsPerCourse.to_csv(fileName, index=False)
+
+  def departmentByStudents(self, fileName = 'department.csv'):
+    """Export csv file containing the number of students in each department
+    Args:
+        fileName (:obj:`str`): name of export file
+    """
+    temp = self.df.loc[:,[self.CLASS_DEPT_COLUMN, self.STUDENT_ID_COLUMN]]
+    temp2 = temp.groupby(self.STUDENT_ID_COLUMN)[self.CLASS_DEPT_COLUMN].unique()
+    vals = dict(pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()) # count unique students for each dept
+    vals = {k: v for k, v in sorted(vals.items(), key=lambda item: item[1], reverse=True)} # sort frequency table in descending order
+    studentsPerDept = pd.DataFrame(vals.items(), columns=['Department', '# of students']) # construct dataframe
+    # export to csv file
+    if not fileName.endswith('.csv'):
+      fileName = "".join((fileName, '.csv'))
+    studentsPerDept.to_csv(fileName, index=False)
 
   def sankeyGraphByCourseTracksOneGroup(self, courseGroup, requiredCourses = None, graphTitle='Track Distribution', outputName = 'sankeyGraph', minEdgeValue = None):
     """Exports a sankey graph according to a given course track. Input is organized as an array of classes included in the track, and optionally a subgroup of classes required for a student to be counted in the graph can be designated as well.
