@@ -5,6 +5,7 @@ Library free for redistribution provided you retain the author attributions abov
 
 The following packages are required for installation before use: 
 """
+from ctypes import sizeof
 import time
 import numpy as np
 import pandas as pd
@@ -13,6 +14,8 @@ import sys
 import math
 from scipy.stats.stats import pearsonr
 from scipy.stats import norm as sciNorm
+import statistics
+from statistics import stdev
 import re, os
 import networkx as nx
 import itertools
@@ -44,6 +47,50 @@ class gradeData(gradeDataHelper):
     """
     super().__init__(sourceFileOrDataFrame,copyDataFrame)
 
+  def outputStudentDistribution(self, makeHistogram = False, fileName = 'studentHistogram', graphTitle='Student Distribution', exportPNG=False):
+    """Prints to console an overview of student distribution per course. 
+        Optionally, outputs a histogram as well.
+
+    Args:
+        makeHistogram (:obj:`bool`, optional): Whether or not to make a histogram graph. Default false.
+        fileName (:obj:`str`): Name of histogram files to output. Default 'studentHistogram'.
+        graphTitle (:obj:`str`): Title to display on graph. Default 'Student Distribution'.
+
+    """
+    # Check to see if Student ID and Class ID columns are present
+    if not self._gradeDataHelper__requiredColumnPresent(self.STUDENT_ID_COLUMN):
+      return
+    if not self._gradeDataHelper__requiredColumnPresent(self.CLASS_ID_COLUMN):
+      return
+    # Locate needed columns
+    temp = self.df.loc[:, [self.CLASS_ID_COLUMN, self.STUDENT_ID_COLUMN]]
+    # Locate, Group, and Count students per course
+    temp2 = temp.groupby(self.STUDENT_ID_COLUMN)[self.CLASS_ID_COLUMN].unique()
+    frequencyTable = pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()
+    vals = frequencyTable.tolist()
+    # print(vals)
+    # print(type(vals))
+
+    if makeHistogram:
+      lowest = round(float('%.1f'%(min(vals))), 1)
+      highest = round(max(vals), 1)
+      frequencies, edges = np.histogram(vals, int((highest - lowest) / 20), (lowest, highest)) # Scale Division in this line
+      histo = hv.Histogram((edges, frequencies))
+      histo.opts(opts.Histogram(xlabel='Students per Course', ylabel='Frequency', title=graphTitle))
+      subtitle= 'n = ' + str(temp[self.CLASS_ID_COLUMN].nunique()) + ' | mean = ' + str(round(sum(vals) / len(vals), 2))\
+                + ' | std dev = ' + str(round(stdev(vals),2))
+      hv.output(size=125)
+      graph = hv.render(histo)
+      graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+      output_file(outDir +fileName + '.html', mode='inline')
+      save(graph)
+      show(graph)
+      if exportPNG:
+        histo.opts(toolbar=None)
+        graph = hv.render(histo)
+        graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+        export_png(graph, filename=outDir +fileName + '.png')
+  
   def outputGpaDistribution(self, makeHistogram = False, fileName = 'gpaHistogram', graphTitle='GPA Distribution', minClasses = 36, exportPNG=False):
     """Prints to console an overview of student GPAs in increments of 0.1 between 1.0 and 4.0. Optionally, outputs a histogram as well.
 
@@ -103,8 +150,8 @@ class gradeData(gradeDataHelper):
       output_file(outDir +fileName + '.html', mode='inline')
       save(graph)
       show(graph)
-    # JH: Why not add a bool for exportPng=True, set False when in edmApplication?
-    #      if not edmApplication:
+      # JH: Why not add a bool for exportPng=True, set False when in edmApplication?
+      #      if not edmApplication:
       if exportPNG:
         histo.opts(toolbar=None)
         graph = hv.render(histo)
@@ -114,7 +161,8 @@ class gradeData(gradeDataHelper):
   def exportCoursesByStudents(self, sectionLevel = False, fileName = 'courses.csv'):
     """Export csv file containing the number of students in each course
     Args:
-        sectionLevel (:obj:`bool`): whether to use unique section ID (or CRN) to identify unique classes
+        sectionLevel (:obj:`bool`): whether to use unique section ID (or CRN) to identify unique classes (different sections
+                                    in different semesters are counted seperately)
         fileName (:obj:`str`): name of export file
     """
     if sectionLevel:
@@ -129,7 +177,7 @@ class gradeData(gradeDataHelper):
       fileName = "".join((fileName, '.csv'))
     studentsPerCourse.to_csv(fileName, index=False)
 
-  def departmentByStudents(self, fileName = 'department.csv'):
+  def exportDepartmentByStudents(self, fileName = 'department.csv'):
     """Export csv file containing the number of students in each department
     Args:
         fileName (:obj:`str`): name of export file
