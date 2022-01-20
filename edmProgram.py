@@ -1376,7 +1376,7 @@ class statsDialogue(QDialog):
           button = QPushButton(self)
           # self.buttons.append(button)
           vals = dict(parent.grades.df[column].value_counts())
-          vals = {k: v for k, v in sorted(vals.items(), key=lambda item: item[1], reverse=True)}
+          vals = {k: v for k, v in sorted(vals.items(), key=lambda item: item[1], reverse=True)} # sort keys by values in descending order
           num = parent.grades.df[column].nunique()
           button.setText('Show Values')
           button.clicked.connect(self.showdialog(num, vals, column))
