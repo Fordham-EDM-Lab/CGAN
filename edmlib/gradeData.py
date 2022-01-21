@@ -47,8 +47,92 @@ class gradeData(gradeDataHelper):
     """
     super().__init__(sourceFileOrDataFrame,copyDataFrame)
 
+  def outputEnrollmentDistribution(self, makeHistogram = False, fileName = 'enrollmentHistogram', graphTitle='Enrollment Distribution', exportPNG=False):
+    """Make a graph overview overview of student distribution per semester. 
+        Optionally, outputs a histogram as well.
+
+    Args:
+        makeHistogram (:obj:`bool`, optional): Whether or not to make a histogram graph. Default false.
+        fileName (:obj:`str`): Name of histogram files to output. Default 'enrollmentHistogram'.
+        graphTitle (:obj:`str`): Title to display on graph. Default 'Enrollment Distribution'.
+
+    """
+    # Check to see if Student ID and Semester ID columns are present
+    if not self._gradeDataHelper__requiredColumnPresent(self.STUDENT_ID_COLUMN):
+      return
+    if not self._gradeDataHelper__requiredColumnPresent(self.TERM_COLUMN):
+      return
+    # Locate needed columns
+    temp = self.df.loc[:, [self.TERM_COLUMN, self.STUDENT_ID_COLUMN]]
+    # Locate, Group, and Count students per course
+    temp2 = temp.groupby(self.STUDENT_ID_COLUMN)[self.TERM_COLUMN].unique()
+    frequencyTable = pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()
+    print(frequencyTable)
+    vals = frequencyTable.tolist()
+    if makeHistogram:
+      lowest = round(float('%.1f'%(min(vals))), 1)
+      highest = round(max(vals), 1)
+      frequencies, edges = np.histogram(vals, int((highest - lowest) / 500), (lowest, highest)) # Scale Division in this line
+      histo = hv.Histogram((edges, frequencies))
+      histo.opts(opts.Histogram(xlabel='Students per Semester', ylabel='Frequency', title=graphTitle))
+      subtitle= 'n = ' + str(temp[self.TERM_COLUMN].nunique()) + ' | mean = ' + str(round(sum(vals) / len(vals), 2))\
+                + ' | std dev = ' + str(round(stdev(vals),2))
+      hv.output(size=125)
+      graph = hv.render(histo)
+      graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+      output_file(outDir +fileName + '.html', mode='inline')
+      save(graph)
+      show(graph)
+      if exportPNG:
+        histo.opts(toolbar=None)
+        graph = hv.render(histo)
+        graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+        export_png(graph, filename=outDir +fileName + '.png')
+
+  def outputCourseDistribution(self, makeHistogram = False, fileName = 'courseHistogram', graphTitle='Course Distribution', exportPNG=False):
+    """Make a graph overview of course distribution per department. 
+        Optionally, outputs a histogram as well.
+
+    Args:
+        makeHistogram (:obj:`bool`, optional): Whether or not to make a histogram graph. Default false.
+        fileName (:obj:`str`): Name of histogram files to output. Default 'courseHistogram'.
+        graphTitle (:obj:`str`): Title to display on graph. Default 'Course Distribution'.
+
+    """
+    # Check to see if Dept ID and Class ID columns are present
+    if not self._gradeDataHelper__requiredColumnPresent(self.CLASS_DEPT_COLUMN):
+      return
+    if not self._gradeDataHelper__requiredColumnPresent(self.CLASS_ID_COLUMN):
+      return
+    # Locate needed columns
+    temp = self.df.loc[:, [self.CLASS_DEPT_COLUMN, self.CLASS_ID_COLUMN]]
+    # Locate, Group, and Count students per course
+    temp2 = temp.groupby(self.CLASS_ID_COLUMN)[self.CLASS_DEPT_COLUMN].unique()
+    frequencyTable = pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()
+    print(frequencyTable)
+    vals = frequencyTable.tolist()
+    if makeHistogram:
+      lowest = round(float('%.1f'%(min(vals))), 1)
+      highest = round(max(vals), 1)
+      frequencies, edges = np.histogram(vals, int((highest - lowest) / 10), (lowest, highest)) # Scale Division in this line
+      histo = hv.Histogram((edges, frequencies))
+      histo.opts(opts.Histogram(xlabel='Courses per Department', ylabel='Frequency', title=graphTitle))
+      subtitle= 'n = ' + str(temp[self.CLASS_DEPT_COLUMN].nunique()) + ' | mean = ' + str(round(sum(vals) / len(vals), 2))\
+                + ' | std dev = ' + str(round(stdev(vals),2))
+      hv.output(size=125)
+      graph = hv.render(histo)
+      graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+      output_file(outDir +fileName + '.html', mode='inline')
+      save(graph)
+      show(graph)
+      if exportPNG:
+        histo.opts(toolbar=None)
+        graph = hv.render(histo)
+        graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
+        export_png(graph, filename=outDir +fileName + '.png')
+
   def outputStudentDistribution(self, makeHistogram = False, fileName = 'studentHistogram', graphTitle='Student Distribution', exportPNG=False):
-    """Prints to console an overview of student distribution per course. 
+    """Make a graph overview overview of student distribution per course. 
         Optionally, outputs a histogram as well.
 
     Args:
@@ -67,10 +151,8 @@ class gradeData(gradeDataHelper):
     # Locate, Group, and Count students per course
     temp2 = temp.groupby(self.STUDENT_ID_COLUMN)[self.CLASS_ID_COLUMN].unique()
     frequencyTable = pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()
+    print(frequencyTable)
     vals = frequencyTable.tolist()
-    # print(vals)
-    # print(type(vals))
-
     if makeHistogram:
       lowest = round(float('%.1f'%(min(vals))), 1)
       highest = round(max(vals), 1)
