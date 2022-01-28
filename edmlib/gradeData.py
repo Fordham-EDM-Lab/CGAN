@@ -131,14 +131,15 @@ class gradeData(gradeDataHelper):
         graph.add_layout(Title(text=subtitle, text_font_style="italic", text_font_size="10pt"), 'above')
         export_png(graph, filename=outDir +fileName + '.png')
 
-  def outputStudentDistribution(self, makeHistogram = False, fileName = 'studentHistogram', graphTitle='Student Distribution', exportPNG=False):
-    """Make a graph overview overview of student distribution per course. 
+  def outputClassSizeDistribution(self, makeHistogram = False, fileName = 'classSizeHistogram', graphTitle='Class Size Distribution', barWidth=20, exportPNG=False):
+    """Make a graph overview of class size distribution for each course. 
         Optionally, outputs a histogram as well.
 
     Args:
         makeHistogram (:obj:`bool`, optional): Whether or not to make a histogram graph. Default false.
-        fileName (:obj:`str`): Name of histogram files to output. Default 'studentHistogram'.
-        graphTitle (:obj:`str`): Title to display on graph. Default 'Student Distribution'.
+        fileName (:obj:`str`): Name of histogram files to output. Default 'classSizeHistogram'.
+        graphTitle (:obj:`str`): Title to display on graph. Default 'Class Size Distribution'.
+        barWidth (:obj:`int`): interval, width of each bar in histogram. Default 20.
 
     """
     # Check to see if Student ID and Class ID columns are present
@@ -154,11 +155,11 @@ class gradeData(gradeDataHelper):
     print(frequencyTable)
     vals = frequencyTable.tolist()
     if makeHistogram:
-      lowest = round(float('%.1f'%(min(vals))), 1)
-      highest = round(max(vals), 1)
-      frequencies, edges = np.histogram(vals, int((highest - lowest) / 20), (lowest, highest)) # Scale Division in this line
+      lowest = min(vals)
+      highest = max(vals)
+      frequencies, edges = np.histogram(vals, int((highest - lowest) / barWidth), (lowest, highest)) # Scale Division in this line
       histo = hv.Histogram((edges, frequencies))
-      histo.opts(opts.Histogram(xlabel='Students per Course', ylabel='Frequency', title=graphTitle))
+      histo.opts(opts.Histogram(xlabel='Students per Course', ylabel='Frequency', title=graphTitle)) # For future feature: add logy=true to draw log scale
       subtitle= 'n = ' + str(temp[self.CLASS_ID_COLUMN].nunique()) + ' | mean = ' + str(round(sum(vals) / len(vals), 2))\
                 + ' | std dev = ' + str(round(stdev(vals),2))
       hv.output(size=125)
