@@ -7,6 +7,7 @@ The following packages are required for installation before use:
 """
 from ctypes import sizeof
 import time
+from turtle import Shape
 import numpy as np
 import pandas as pd
 import csv
@@ -46,6 +47,60 @@ class gradeData(gradeDataHelper):
 
     """
     super().__init__(sourceFileOrDataFrame,copyDataFrame)
+
+  def outputDepartmentStatistics(self, fileName = 'DepartmentStats.csv'):
+    """Export csv file containing multiple statistics for each department
+    Args:
+        fileName (:obj:`str`): name of export file. Defaults to 'DepartmentStats.csv'
+    
+    """
+    start = time.time()
+    # Count unique students for each department
+    print('Counting unique students...')
+    StudentDf = self.groupFeatureByDepartment(self.STUDENT_ID_COLUMN)
+    StudentDf = StudentDf.rename(columns={0:'#Students'})
+    # Count total ennrollment for each department 
+    print('Counting number of enrollments...')
+    EnrollDf = self.groupFeatureByDepartment(self.STUDENT_ID_COLUMN, countDuplicates=True)
+    EnrollDf = EnrollDf.rename(columns={0:'#Enrollment'})
+    # Count sections for each department
+    print('Counting number of course sections...')
+    SectionDf = self.groupFeatureByDepartment(self.CLASS_ID_COLUMN)
+    SectionDf = SectionDf.rename(columns={0:'#Sections'})
+    # Count unique courses for each department
+    print('Counting number of unique courses...')
+    CourseDf = self.groupFeatureByDepartment(self.CLASS_CODE_COLUMN)
+    CourseDf = CourseDf.rename(columns={0:'#Courses'})
+    # Merge all features into one DataFrame
+    print('Merging data...')
+    df = EnrollDf.join(StudentDf).join(SectionDf).join(CourseDf)
+    df.index.names = ['Department']
+    df.to_csv(fileName, index=True)
+    # output runtime
+    end = time.time()
+    print(f'Runtime: {end-start:.2f}s')
+
+  def groupFeatureByDepartment(self, featureColumn, countDuplicates=False):
+    """Return DataFrame of departments grouped by featureColumn
+    Args:
+        featureColumn (:obj:`str`): name of column containing the feature to group
+        countDuplicates (:obj:`bool`): count duplicate values or only count unique values (default to count only uniques)
+    """
+    temp = self.df.loc[:,[self.CLASS_DEPT_COLUMN, featureColumn]]
+    if countDuplicates:
+      temp2 = temp.groupby(featureColumn).apply(pd.DataFrame)
+      list = temp2.values[:,0].tolist()
+      # Count numbers for each departments
+      vals = {x: 0 for x in list}
+      for dept in list:
+        vals[dept] += 1
+      vals = {k: v for k, v in sorted(vals.items(), key=lambda item: item[1], reverse=True)} # sort
+      FeatureDf = pd.DataFrame.from_dict(vals, orient='index')
+    else:
+      temp2 = temp.groupby(featureColumn)[self.CLASS_DEPT_COLUMN].unique()
+      vals = pd.DataFrame.from_records(temp2.values.tolist()).stack().value_counts()
+      FeatureDf = vals.to_frame()
+    return FeatureDf
 
   def outputEnrollmentDistribution(self, makeHistogram = False, fileName = 'enrollmentGraph', graphTitle='Enrollment Distribution'):
     """Make a graph overview overview of student distribution per semester. 

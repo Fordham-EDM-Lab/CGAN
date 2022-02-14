@@ -853,3 +853,6 @@ class gradeDataHelper:
       gpaList.append(gpaDict[student])
     self.df["studentGPA"] = gpaList
 
+  def createClassCodeColumn(self):
+    self.df[self.CLASS_CODE_COLUMN] = self.df[self.CLASS_DEPT_COLUMN] + self.df[self.CLASS_NUMBER_COLUMN]
+
