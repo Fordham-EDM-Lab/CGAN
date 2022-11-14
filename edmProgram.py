@@ -144,6 +144,7 @@ class MyWindow(QMainWindow):
         # print('reload time (s)')
         # print(te - ts)
 
+    # GUI upper menu
     def setGeneralButtons(self):
         """
           Set up the GUI upper menu bars
@@ -2000,7 +2001,7 @@ class instructorEffectivenessDialog(QDialog):
         self.third.setText('instructorRanking')
         self.fourth = QSpinBox(self)
         self.fourth.setMinimum(1)
-        self.fourth.setMaximum(9999999999)
+        self.fourth.setMaximum(999999)
         self.fourth.setSingleStep(1)
         self.fourth.setValue(1)
         self.fourth.setMaximumWidth(200)
